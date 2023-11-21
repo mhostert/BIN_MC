@@ -30,10 +30,10 @@ class MuonDecay(object):
     # Use vegas to simulate mu decays
     def simulate_decays(
         self,
-        Rpm=0.5,
+        Rpm=0.5,  # fraction that are plus helicity
         model="LOmudecay_unpol",
-        pmin=0.010,
-        pmax=10.0,
+        pmin=0.010,  # GeV
+        pmax=10.0,  # GeV
         tmin=0.0,  # rad
         tmax=1.0,  # rad
         beam_p0=3.8,  # GeV
@@ -71,14 +71,15 @@ class MuonDecay(object):
         _type_
             _description_
         """
-        Mparent = const.m_mu
-        Mdaughter = const.m_e
+
+        Mparent = const.m_mu  # mass of the muon
+        Mdaughter = const.m_e  # mass of the electron
         # muon helicities h #
         h_plus = MC.MC_events(
             model=model,
             Mparent=Mparent,
             Mdaughter=Mdaughter,
-            helicity=+1,
+            helicity=+1,  # For all h_plus muon events
             tmin=tmin,  # rad
             tmax=tmax,  # rad
             pmin=pmin,
@@ -112,10 +113,12 @@ class MuonDecay(object):
             NEVAL_warmup=NEVAL_warmup,
         )
 
-        df_plus = h_plus.get_MC_events()
-        df_minus = h_minus.get_MC_events()
+        df_plus = h_plus.get_MC_events()  # gets all events for +1 helicity
+        df_minus = h_minus.get_MC_events()  # same but for all -1 helicity
 
-        self.df_gen = pd.concat([df_plus, df_minus], axis=0).reset_index(drop=True)
+        self.df_gen = pd.concat([df_plus, df_minus], axis=0).reset_index(
+            drop=True
+        )  # adds all helicities together
 
         return self.df_gen
 
@@ -180,11 +183,15 @@ class MuonDecay(object):
         self.include_beamdiv = include_beamdiv
         self.truncate_exp = truncate_exp
 
-        self.pmu = self.df_gen["P_decay_mu"].to_numpy()
-        self.pe = self.df_gen["P_decay_e"].to_numpy()
-        self.pnue = self.df_gen["P_decay_nu_e"].to_numpy()
-        self.pnumu = self.df_gen["P_decay_nu_mu"].to_numpy()
-        self.w = self.df_gen["w_flux"].to_numpy()
+        self.pmu = self.df_gen["P_decay_mu"].to_numpy()  # all muon decaying momenta
+        self.pe = self.df_gen["P_decay_e"].to_numpy()  # all emitted electrons momenta
+        self.pnue = self.df_gen[
+            "P_decay_nu_e"
+        ].to_numpy()  # all emitted electron neutrinos momenta
+        self.pnumu = self.df_gen[
+            "P_decay_nu_mu"
+        ].to_numpy()  # all emitted muonic neutrinos momenta
+        self.w = self.df_gen["w_flux"].to_numpy()  # flux of emitted W; momenta of W?
 
         self.sample_size = np.size(self.pmu[:, 0])
 
@@ -239,7 +246,7 @@ class MuonDecay(object):
         )
         self.dR_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
 
-    def flux_in_detector(self, DIM_ND=[3e2, 3e2, 3e2], NBINS=100):
+    def flux_in_detector(self, DIM_ND=[3e2, 3e2, 3e2], NBINS=100, acceptance=False):
         self.mask_numu = np.array(
             (np.abs(self.Y_intersec_numu - self.R_ND[1]) < DIM_ND[1])
             & (np.abs(self.X_intersec_numu - self.R_ND[0]) < DIM_ND[0])
@@ -252,6 +259,9 @@ class MuonDecay(object):
         self.nue_eff_ND = np.sum(self.w[self.mask_nue]) / np.sum(self.w)
         self.numu_eff_ND = np.sum(self.w[self.mask_numu]) / np.sum(self.w)
 
+        if acceptance == True:
+            return self.nue_eff_ND, self.numu_eff_ND
+
         print(
             "Detector acceptance:",
             self.nue_eff_ND,
@@ -259,6 +269,7 @@ class MuonDecay(object):
             self.numu_eff_ND,
             "for numu.",
         )
+
         if self.nue_eff_ND > 0 and self.numu_eff_ND > 0:
             self.wnue_ND = self.w[self.mask_nue]
             self.wnumu_ND = self.w[self.mask_numu]

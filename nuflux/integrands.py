@@ -26,12 +26,12 @@ class LOmudecay_unpol(vg.BatchIntegrand):
 
         ######################################
         # mu -> e nu nu
-        i_var = 0
+        i_var = 0 #0 is for the momentum pmu
         pmu = MC_case.pmin + (MC_case.pmax - MC_case.pmin) * x[:, i_var]  # GeV
         Emu = np.sqrt(MC_case.Mparent**2 + pmu**2)
-        i_var += 1
+        i_var += 1 #1 is for the angle thetamu
         thetamu = MC_case.tmin + (MC_case.tmax - MC_case.tmin) * x[:, i_var]
-        i_var += 1
+        i_var += 1 #2 is for phase space tmax and tmin?
 
         m1 = MC_case.Mparent
         m2 = MC_case.Mdaughter
