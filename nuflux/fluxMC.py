@@ -45,6 +45,32 @@ class MuonDecay(object):
         NEVAL=1e5,
         NEVAL_warmup=1e4,
     ):
+        """simulate_decays _summary_
+
+        Parameters
+        ----------
+        Rpm : float, optional
+            _description_, by default 0.5
+        model : str, optional
+            _description_, by default "LOmudecay_unpol"
+        pmin : float, optional
+            _description_, by default 0.010
+        pmax : float, optional
+            _description_, by default 10.0
+        tmin : float, optional
+            _description_, by default 0.0
+        NINT_warmup : int, optional
+            _description_, by default 10
+        NEVAL : _type_, optional
+            _description_, by default 1e5
+        NEVAL_warmup : _type_, optional
+            _description_, by default 1e4
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         Mparent = const.m_mu
         Mdaughter = const.m_e
         # muon helicities h #
