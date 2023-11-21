@@ -22,12 +22,12 @@ class MC_events(object):
         tmax=1.0,  # rad
         include_beamdiv=True,
         helicity=-1,
-        mnu1=0,
+        mnu1=0, #why this approximation?
         mnu2=0,
         beam_p0=3.8,  # GeV
-        beam_dpop=0.10,  # %
-        beam_theta0=0.0,  # rad
-        beam_dtheta=0.005,  # rad
+        beam_dpop=0.10,  # sigma / p
+        beam_theta0=0.0,  # rad #what is this again
+        beam_dtheta=0.005,  # rad 
         NINT=10,
         NINT_warmup=10,
         NEVAL=1e5,
@@ -57,9 +57,9 @@ class MC_events(object):
         self.NEVAL_warmup = NEVAL_warmup
 
     def get_MC_events(self):
-        if self.model == "LOmudecay_unpol":
+        if self.model == "LOmudecay_unpol": #need to look into this decay; try different ones?
             # BATCH SAMPLE INTEGRAN OF INTEREST
-            DIM = 6
+            DIM = 6 #dim of phase space
             batch_f = integrands.LOmudecay_unpol(dim=DIM, MC_case=self)
             integ = vg.Integrator(DIM * [[0.0, 1.0]])
 
