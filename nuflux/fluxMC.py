@@ -174,11 +174,17 @@ class MuonDecay(object):
         smearing=True,
         include_beamdiv=False,
         truncate_exp=True,
+        circular = False,
+        Racc = 1e7,
+        Ddetector = [3e2, 20]
     ):
         self.ZBEAMEND = ZBEAMEND  # cm
         self.ZBEAMEXIT = ZBEAMEXIT  # cm
         self.BEAM_HALFSIZE = BEAM_HALFSIZE  # cm
         self.R_ND = R_ND  # cm
+        self.R_CD = Racc #cm
+        self.R_CA = Ddetector[0]
+        self.R_CH = Ddetector[1]
 
         self.include_beamdiv = include_beamdiv
         self.truncate_exp = truncate_exp
@@ -203,58 +209,109 @@ class MuonDecay(object):
 
         # generate position of the mu decay along straight
         self.decay_position()
+        # geometry - both for linear and circular
 
-        # geometry
 
-        # X,Y,Z coordinates of mu decay
-        self.xmu = self.rvec_mu[:, 0]
-        self.ymu = self.rvec_mu[:, 1]
-        self.zmu = self.rvec_mu[:, 2]
+        #for circular
+        if circular==True:
+            self.delta = self.rvec_mu[:, 2] / self.R_CD % 2*np.pi
 
-        # distance to the detector
-        self.X_ND = R_ND[0]
-        self.Y_ND = R_ND[1]
-        self.Z_ND = R_ND[2]
+            #counterclockwise
+            self.pe_ar = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2) * np.ones(len(self.pe)))
+            self.pnumu_ar = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2) * np.ones(len(self.pnumu)))
+            self.pnue_ar = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2) * np.ones(len(self.pnue)))
+            
+            #translate coordinate axis - assign new coordinate positions based on deltay
+            self.pos_at = np.vstack((self.rvec_mu[:,0], self.R_CD * np.sin(self.delta), self.R_CD * np.cos(self.delta)))
+            print(self.pos_at.shape)
+            print(self.pos_at.T[:10, 1])
+            #intersection point momentum - y=0 plane$
+            self.int_e = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pe_ar[:, 1:4]) , self.pe_ar[:, 2].reshape(len(self.pe_ar[:, 2]), 1))
+            self.int_numu = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pnumu_ar[:, 1:4]) , self.pnumu_ar[:,2].reshape(len(self.pnumu_ar[:, 2]), 1))
+            self.int_nue = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pnue_ar[:, 1:4]) , self.pnue_ar[:,2].reshape(len(self.pnue_ar[:, 2]), 1))
+            print(self.int_nue[:10, 1], self.int_numu[:10, 1], self.int_e[:10, 1])
+            assert self.int_e[:, 1].all() and self.int_numu[:, 1].all() and self.int_nue[:, 1].all(), "intersection points not computed well"
 
-        # distance between plane of Z=Z_ND and the point of mu decay
-        self.Dzmu = self.Z_ND - self.zmu
+        else: 
 
-        # v angles
-        # cosine of the azimuthal angle wrt to the Z direction (beam straight)
-        self.ctheta_numu = Cfv.get_cosTheta(self.pnumu)
-        self.ctheta_nue = Cfv.get_cosTheta(self.pnue)
-        self.ctheta_e = Cfv.get_cosTheta(self.pe)
+            #for linear
+            # X,Y,Z coordinates of mu decay
+            self.xmu = self.rvec_mu[:, 0]
+            self.ymu = self.rvec_mu[:, 1]
+            self.zmu = self.rvec_mu[:, 2]
 
-        self.ttheta_numu = np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu
-        self.ttheta_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue
-        self.ttheta_e = np.sqrt(1.0 - self.ctheta_e**2) / self.ctheta_e
+            # distance to the detector
+            self.X_ND = R_ND[0]
+            self.Y_ND = R_ND[1]
+            self.Z_ND = R_ND[2]
 
-        # polar angle with Y=0 plane being the ground/plane of the racetrack.
-        self.phi_numu = np.arctan2(self.pnumu[:, 2], self.pnumu[:, 1])
-        self.phi_nue = np.arctan2(self.pnue[:, 2], self.pnue[:, 1])
-        self.phi_e = np.arctan2(self.pe[:, 2], self.pe[:, 1])
+            # distance between plane of Z=Z_ND and the point of mu decay
+            self.Dzmu = self.Z_ND - self.zmu
 
-        # X and Y coordinates of the intersection between pnu and the plane Z=Z_ND
-        self.Y_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.sin(self.phi_numu)
-        self.X_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.cos(self.phi_numu)
-        self.Y_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.sin(self.phi_nue)
-        self.X_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.cos(self.phi_nue)
+            # v angles
+            # cosine of the azimuthal angle wrt to the Z direction (beam straight)
+            self.ctheta_numu = Cfv.get_cosTheta(self.pnumu)
+            self.ctheta_nue = Cfv.get_cosTheta(self.pnue)
+            self.ctheta_e = Cfv.get_cosTheta(self.pe)
 
-        # radius of the ring defined by the intersection of the neutrino momentum and the plane Z=Z_ND
-        self.dR_numu = (
-            np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
-        )
-        self.dR_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
+            self.ttheta_numu = np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu
+            self.ttheta_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue
+            self.ttheta_e = np.sqrt(1.0 - self.ctheta_e**2) / self.ctheta_e
 
-    def flux_in_detector(self, DIM_ND=[3e2, 3e2, 3e2], NBINS=100, acceptance=False):
-        self.mask_numu = np.array(
-            (np.abs(self.Y_intersec_numu - self.R_ND[1]) < DIM_ND[1])
-            & (np.abs(self.X_intersec_numu - self.R_ND[0]) < DIM_ND[0])
-        )
-        self.mask_nue = np.array(
-            (np.abs(self.Y_intersec_nue - self.R_ND[1]) < DIM_ND[1])
-            & (np.abs(self.X_intersec_nue - self.R_ND[0]) < DIM_ND[0])
-        )
+            # polar angle with Y=0 plane being the ground/plane of the racetrack.
+            self.phi_numu = np.arctan2(self.pnumu[:, 2], self.pnumu[:, 1])
+            self.phi_nue = np.arctan2(self.pnue[:, 2], self.pnue[:, 1])
+            self.phi_e = np.arctan2(self.pe[:, 2], self.pe[:, 1])
+
+            # X and Y coordinates of the intersection between pnu and the plane Z=Z_ND
+            self.Y_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.sin(self.phi_numu)
+            self.X_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.cos(self.phi_numu)
+            self.Y_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.sin(self.phi_nue)
+            self.X_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.cos(self.phi_nue)
+
+            # radius of the ring defined by the intersection of the neutrino momentum and the plane Z=Z_ND
+            self.dR_numu = (
+                np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
+            )
+            self.dR_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
+
+    def flux_in_detector(self, DIM_ND=[3e2, 3e2, 3e2], NBINS=100, acceptance=False, circular = False):
+
+        if circular == True:
+            
+            #distances - we assume that the detector is at (0, 0, R_CD)
+            self.d_numu = np.sqrt((self.int_numu[:,0] - 0)**2 + (self.int_numu[:,2] - self.R_CD)**2)
+            self.d_nue = np.sqrt((self.int_nue[:,0] - 0)**2 + (self.int_nue[:,2] - self.R_CD)**2)
+
+            #masks
+            self.mask_numu = np.array(
+                (self.d_numu < self.R_CA)
+                & (self.d_numu > self.R_CH)
+            )
+            self.mask_nue = np.array(
+                (self.d_nue < self.R_CA)
+                & (self.d_nue > self.R_CH)
+            )
+
+            #additional mask: if delta < pi, emitted particle cannot reach detector
+            not_accepted = []
+            for i, d in enumerate(self.delta):
+                if d< np.pi:
+                    not_accepted.append(i)
+            
+            for j, i in enumerate(not_accepted):
+                self.mask_numu[i] = 0
+                self.mask_nue[i] = 0
+
+        else: 
+            self.mask_numu = np.array(
+                (np.abs(self.Y_intersec_numu - self.R_ND[1]) < DIM_ND[1])
+                & (np.abs(self.X_intersec_numu - self.R_ND[0]) < DIM_ND[0])
+            )
+            self.mask_nue = np.array(
+                (np.abs(self.Y_intersec_nue - self.R_ND[1]) < DIM_ND[1])
+                & (np.abs(self.X_intersec_nue - self.R_ND[0]) < DIM_ND[0])
+            )
 
         self.nue_eff_ND = np.sum(self.w[self.mask_nue]) / np.sum(self.w)
         self.numu_eff_ND = np.sum(self.w[self.mask_numu]) / np.sum(self.w)
