@@ -126,10 +126,12 @@ class MuonDecay(object):
     # auxiliary func to decay particle along its trajectory
     def decay_position(self):
         Emu = self.pmu[:, 0]
-        pmu = np.sqrt(Emu**2 - const.m_mu**2)
-        gammabetak = pmu / const.m_mu
+        pmu = np.sqrt(Emu**2 - const.m_mu**2) #gamma *m *v * c
+        gammabetak = pmu / const.m_mu # gamma * v/c
         lmudecay = gammabetak * const.c_LIGHT * (lp.mu_minus.lifetime * 1e-9)  # cm
-        cmu1 = Cfv.get_cosTheta(self.pmu)
+        cmu1 = Cfv.get_cosTheta(self.pmu) #costheta of the muon, not the decay particles, so always very close to 1
+        
+        #print(cmu1)
 
         if self.truncate_exp:
             self.rmu = truncexpon.rvs(
@@ -182,6 +184,8 @@ class MuonDecay(object):
         self.ZBEAMEXIT = ZBEAMEXIT  # cm
         self.BEAM_HALFSIZE = BEAM_HALFSIZE  # cm
         self.R_ND = R_ND  # cm
+        if circular == True:
+            self.R_ND = [0, 0, Racc]
         self.R_CD = Racc #cm
         self.R_CA = Ddetector[0]
         self.R_CH = Ddetector[1]
@@ -215,22 +219,57 @@ class MuonDecay(object):
         #for circular
         if circular==True:
             self.delta = self.rvec_mu[:, 2] / self.R_CD % 2*np.pi
+            #print(self.rvec_mu[:,2])
+            #return self.delta
 
             #counterclockwise
-            self.pe_ar = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2) * np.ones(len(self.pe)))
-            self.pnumu_ar = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2) * np.ones(len(self.pnumu)))
-            self.pnue_ar = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2) * np.ones(len(self.pnue)))
+            self.pe_ar = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2))
+            self.pnumu_ar = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2))
+            self.pnue_ar = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2))
             
+            #print(self.pe_ar)
+
             #translate coordinate axis - assign new coordinate positions based on deltay
-            self.pos_at = np.vstack((self.rvec_mu[:,0], self.R_CD * np.sin(self.delta), self.R_CD * np.cos(self.delta)))
-            print(self.pos_at.shape)
-            print(self.pos_at.T[:10, 1])
+            self.pos_at = np.zeros((3, len(self.pe_ar[:,0])))
+            self.pos_at[0,:] = self.rvec_mu[:,0]
+            self.pos_at[1,:] = self.R_CD*np.sin(self.delta)
+            self.pos_at[2,:] = self.R_CD*np.cos(self.delta)
+
+            #print(self.pos_at.shape)
+            #print(self.pos_at.T[:10, 1])
+            #print(self.pos_at.T[:10, 2])
+
             #intersection point momentum - y=0 plane$
-            self.int_e = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pe_ar[:, 1:4]) , self.pe_ar[:, 2].reshape(len(self.pe_ar[:, 2]), 1))
-            self.int_numu = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pnumu_ar[:, 1:4]) , self.pnumu_ar[:,2].reshape(len(self.pnumu_ar[:, 2]), 1))
-            self.int_nue = self.pos_at.T - np.divide(np.multiply(self.pos_at[:, 1].T,self.pnue_ar[:, 1:4]) , self.pnue_ar[:,2].reshape(len(self.pnue_ar[:, 2]), 1))
-            print(self.int_nue[:10, 1], self.int_numu[:10, 1], self.int_e[:10, 1])
-            assert self.int_e[:, 1].all() and self.int_numu[:, 1].all() and self.int_nue[:, 1].all(), "intersection points not computed well"
+            self.int_e = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pe_ar[:,1:4]) , self.pe_ar[:, 2].reshape(len(self.pe_ar[:, 2]), 1))
+
+
+            self.int_numu = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pnumu_ar[:, 1:4]) , self.pnumu_ar[:,2].reshape(len(self.pnumu_ar[:, 2]), 1))
+            self.int_nue = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pnue_ar[:, 1:4]) , self.pnue_ar[:,2].reshape(len(self.pnue_ar[:, 2]), 1))
+            
+            tfe = self.int_e[:,1]<1e-4
+
+            #indices = np.where(tfe==False)
+            #print(indices)
+            #for  i in indices:
+            #    print(self.int_e[i, 1])
+            #    print(self.pos_at[1, i])
+            #    print(self.pe_ar[i, 2])
+
+            tfnumu = self.int_numu[:, 1]<1e-4
+
+            #print(np.where(tfnumu==0))
+            #for  i in np.where(tfnumu==0):
+            #    print(self.int_numu[i, 1])
+
+            tfnue = self.int_nue[:, 1]<1e-4
+
+            #print(np.where(tfnue==0))
+            #for  i in np.where(tfnue==0):
+            #    print(self.int_nue[i, 1])
+
+            assert tfe.all(), "tfe"
+            assert tfnumu.all(), "tfnumu"
+            assert tfnue.all(), "tfnue"
 
         else: 
 
