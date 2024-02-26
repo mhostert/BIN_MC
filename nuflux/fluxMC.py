@@ -175,10 +175,11 @@ class MuonDecay(object):
         R_ND=[0, 0, 50e2],  # cm
         smearing=True,
         include_beamdiv=False,
-        truncate_exp=True,
+        truncate_exp=False,
         circular = False,
-        Racc = 1e7,
-        Ddetector = [3e2, 20]
+        Racc = 1e6,
+        Ddetector = [3e2, 20],
+        det_height = 10e2
     ):
         self.ZBEAMEND = ZBEAMEND  # cm
         self.ZBEAMEXIT = ZBEAMEXIT  # cm
@@ -186,9 +187,10 @@ class MuonDecay(object):
         self.R_ND = R_ND  # cm
         if circular == True:
             self.R_ND = [0, 0, Racc]
-        self.R_CD = Racc #cm
-        self.R_CA = Ddetector[0]
-        self.R_CH = Ddetector[1]
+        self.Racc = Racc #cm
+        self.Rdet = Ddetector[0]
+        self.Rhole = Ddetector[1]
+        self.det_height = det_height
 
         self.include_beamdiv = include_beamdiv
         self.truncate_exp = truncate_exp
@@ -204,6 +206,7 @@ class MuonDecay(object):
         self.w = self.df_gen["w_flux"].to_numpy()  # flux of emitted W; momenta of W?
 
         self.sample_size = np.size(self.pmu[:, 0])
+        print(self.sample_size)
 
         # Energies
         self.Emu = self.pmu[:, 0]
@@ -218,58 +221,52 @@ class MuonDecay(object):
 
         #for circular
         if circular==True:
-            self.delta = self.rvec_mu[:, 2] / self.R_CD % 2*np.pi
-            #print(self.rvec_mu[:,2])
-            #return self.delta
+            self.delta = self.rvec_mu[:, 2] / self.Racc % 2*np.pi
 
-            #counterclockwise
+            #counterclockwise - new momentum
             self.pe_ar = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2))
             self.pnumu_ar = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2))
             self.pnue_ar = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2))
             
-            #print(self.pe_ar)
 
             #translate coordinate axis - assign new coordinate positions based on deltay
-            self.pos_at = np.zeros((3, len(self.pe_ar[:,0])))
+            self.pos_at = np.zeros((3, self.sample_size))
             self.pos_at[0,:] = self.rvec_mu[:,0]
-            self.pos_at[1,:] = self.R_CD*np.sin(self.delta)
-            self.pos_at[2,:] = self.R_CD*np.cos(self.delta)
-
-            #print(self.pos_at.shape)
-            #print(self.pos_at.T[:10, 1])
-            #print(self.pos_at.T[:10, 2])
-
-            #intersection point momentum - y=0 plane$
-            self.int_e = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pe_ar[:,1:4]) , self.pe_ar[:, 2].reshape(len(self.pe_ar[:, 2]), 1))
+            self.pos_at[1,:] = self.Racc*np.sin(self.delta)
+            self.pos_at[2,:] = self.Racc*np.cos(self.delta)
 
 
-            self.int_numu = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pnumu_ar[:, 1:4]) , self.pnumu_ar[:,2].reshape(len(self.pnumu_ar[:, 2]), 1))
-            self.int_nue = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((len(self.pos_at[1,:]),1)),self.pnue_ar[:, 1:4]) , self.pnue_ar[:,2].reshape(len(self.pnue_ar[:, 2]), 1))
+            self.momenta = [self.pe_ar, self.pnumu_ar, self.pnue_ar]
             
-            tfe = self.int_e[:,1]<1e-4
+            #This array will have all the coordinates for the intersection points, xyz; first for y = 0, then z= Racc + Rdet, then y = det_height, then x = Rdet, then x = - Rdet ; then it will do it for all three particles
+            self.int_points = np.empty([self.sample_size, 5, 3, 3])
+            #intersection point momentum - y=0 plane$ FOR ACCEPTANCE
+            for i,p in enumerate(self.momenta):
+                self.int_points[:,0,:, i] = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((self.sample_size,1)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
+                self.int_points[:, 1, :, i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[2,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Racc + self.Rdet)),p[:,1:4]) , p[:, 3].reshape(self.sample_size, 1))
+                self.int_points[:,2,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[1,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.det_height)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
+                self.int_points[:,3,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
+                self.int_points[:,4,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1),  -1*self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
 
-            #indices = np.where(tfe==False)
-            #print(indices)
-            #for  i in indices:
-            #    print(self.int_e[i, 1])
-            #    print(self.pos_at[1, i])
-            #    print(self.pe_ar[i, 2])
+            
+            """planes for detector: Racc is the radius of accelerator, Rdet is the radius of the detector, Rhole is the radius of the hole.
+                                    z_top = Racc + Rdet
+                                    z_bottom = Racc - Rdet
+                                    x_front = Rdet
+                                    x_back = - Rdet
+                                    y_front = 0
+                                    y_back = det_height
 
-            tfnumu = self.int_numu[:, 1]<1e-4
+                                    mask: accepted neutrinos already
+                                    x cases:
+                                    (1) = most common: y_front first, then z_top (if int. point with z_top has a 0 < y < det_height and - Rdet < x < Rdet)
+                                    (2) = y_front, then y_back (if int. point with y_back has  - Rdet < x < Rdet)
+                                    (3) = y_front, then x_front (if int. point with x_front has 0 < y < det_height)
+                                    (4) = y_front, then x_back
 
-            #print(np.where(tfnumu==0))
-            #for  i in np.where(tfnumu==0):
-            #    print(self.int_numu[i, 1])
-
-            tfnue = self.int_nue[:, 1]<1e-4
-
-            #print(np.where(tfnue==0))
-            #for  i in np.where(tfnue==0):
-            #    print(self.int_nue[i, 1])
-
-            assert tfe.all(), "tfe"
-            assert tfnumu.all(), "tfnumu"
-            assert tfnue.all(), "tfnue"
+                                    compute all lengths, then assert all lengths are below sqrt(8 * Rdet**2 + det_height**2)
+                                    
+            """
 
         else: 
 
@@ -318,18 +315,18 @@ class MuonDecay(object):
 
         if circular == True:
             
-            #distances - we assume that the detector is at (0, 0, R_CD)
-            self.d_numu = np.sqrt((self.int_numu[:,0] - 0)**2 + (self.int_numu[:,2] - self.R_CD)**2)
-            self.d_nue = np.sqrt((self.int_nue[:,0] - 0)**2 + (self.int_nue[:,2] - self.R_CD)**2)
+            #distances - we assume that the detector is at (0, 0, Racc)
+            self.d_numu = np.sqrt((self.int_points[:,0, 0, 1] - 0)**2 + (self.int_points[:,0,2, 1] - self.Racc)**2)
+            self.d_nue = np.sqrt((self.int_points[:,0,0,2] - 0)**2 + (self.int_points[:,0,2,2] - self.Racc)**2)
 
             #masks
             self.mask_numu = np.array(
-                (self.d_numu < self.R_CA)
-                & (self.d_numu > self.R_CH)
+                (self.d_numu < self.Rdet)
+                & (self.d_numu > self.Rhole)
             )
             self.mask_nue = np.array(
-                (self.d_nue < self.R_CA)
-                & (self.d_nue > self.R_CH)
+                (self.d_nue < self.Rdet)
+                & (self.d_nue > self.Rhole)
             )
 
             #additional mask: if delta < pi, emitted particle cannot reach detector
@@ -341,6 +338,58 @@ class MuonDecay(object):
             for j, i in enumerate(not_accepted):
                 self.mask_numu[i] = 0
                 self.mask_nue[i] = 0
+
+            #distance done within detector; Racc is radius of accelerator, Rdet is radius of detector, Rhole is radius of hole.
+            """planes for detector: z_top = Racc + Rdet
+                                    z_bottom = Racc - Rdet
+                                    x_front = Rdet
+                                    x_back = Rdet
+            """
+            self.heights = np.empty([self.sample_size, 3]) # first is e, then numu, then nue
+            self.cases = np.empty([self.sample_size, 3])
+            for i in range(self.sample_size):
+                for j in range(3):
+
+                    if ((self.int_points[i,1, 1, j] < self.det_height) 
+                    & (self.int_points[i,1, 1, j] > 0) 
+                    & (self.int_points[i,1, 0, j] < self.Rdet) 
+                    & (self.int_points[i,1, 0, j] > -1*self.Rdet)):
+                        self.cases[i,j] = 1
+                        case = 1
+
+                    elif ((self.int_points[i,2, 0, j] < self.Rdet) 
+                    & (self.int_points[i,2, 0, j] > -1* self.Rdet) 
+                    & (self.int_points[i,2, 2, j] < self.Rdet + self.Racc) 
+                    & (self.int_points[i,2, 2, j] > self.Racc - self.Rdet)):
+                        self.cases[i,j] = 2
+                        case = 2
+
+                    elif ((self.int_points[i,3, 1, j] < self.det_height) 
+                    & (self.int_points[i,3, 1, j] > 0) 
+                    & (self.int_points[i,3, 2, j] < self.Rdet + self.Racc) 
+                    & (self.int_points[i,3, 2, j] > self.Racc - self.Rdet)):
+                        self.cases[i,j] = 3
+                        case = 3
+                    
+                    elif ((self.int_points[i,4, 1, j] < self.det_height) 
+                    & (self.int_points[i,4, 1, j] > 0) 
+                    & (self.int_points[i,4, 2, j] < self.Rdet + self.Racc) 
+                    & (self.int_points[i,4, 2, j] > self.Racc - self.Rdet)):
+                        self.cases[i,j] = 4
+                        case = 4
+                    
+                    else:
+                        self.cases[i,j] = 0
+                        case = 0
+                    
+                    #case = self.cases[i,j]
+                    self.heights[i,j] = D3distance(self.int_points[i,int(self.cases[i,j]), :, j], self.int_points[i,0,:,j])
+
+
+            for p in self.heights[:,1][self.mask_numu]:
+                assert p < np.sqrt(8 * self.Rdet**2 + self.det_height**2) 
+            for p in self.heights[:,2][self.mask_nue]:
+                assert p < np.sqrt(8 * self.Rdet**2 + self.det_height**2)   
 
         else: 
             self.mask_numu = np.array(
@@ -369,33 +418,40 @@ class MuonDecay(object):
         if self.nue_eff_ND > 0 and self.numu_eff_ND > 0:
             self.wnue_ND = self.w[self.mask_nue]
             self.wnumu_ND = self.w[self.mask_numu]
-            self.Enue_ND, self.flux_nue_ND = get_flux(
+            self.Enue_ND, self.flux_nue_ND_p = get_flux(
                 self.Enue[self.mask_nue], self.wnue_ND, NBINS
             )
-            self.Enumu_ND, self.flux_numu_ND = get_flux(
+            self.Enumu_ND, self.flux_numu_ND_p = get_flux(
                 self.Enumu[self.mask_numu], self.wnumu_ND, NBINS
             )
 
             # area of detector
-            self.area = DIM_ND[1] * DIM_ND[2]
+            if circular==True:
+                self.area = np.pi * (self.Rdet**2 - self.Rhole**2) 
+            else:
+                self.area = DIM_ND[1] * DIM_ND[2]
+            
             self.flux_nue_ND = (
-                self.flux_nue_ND
-                / np.sum(self.flux_nue_ND)
+                self.flux_nue_ND_p
+                / np.sum(self.flux_nue_ND_p)
                 * self.N_mu
                 / self.area
                 / (self.Enue_ND[1] - self.Enue_ND[0])
                 * self.nue_eff_ND
             )
             self.flux_numu_ND = (
-                self.flux_numu_ND
-                / np.sum(self.flux_numu_ND)
+                self.flux_numu_ND_p
+                / np.sum(self.flux_numu_ND_p)
                 * self.N_mu
                 / self.area
                 / (self.Enumu_ND[1] - self.Enumu_ND[0])
                 * self.numu_eff_ND
             )
 
-            return self.flux_nue_ND, self.flux_numu_ND
+            return self.flux_nue_ND_p, self.flux_numu_ND_p
         else:
             print("No flux in the detector")
             return 0, 0
+
+def D3distance(position, intersection):
+    return np.sqrt((position[0] - intersection[0])**2 + (position[1] - intersection[1])**2 + (position[2] - intersection[2])**2)
