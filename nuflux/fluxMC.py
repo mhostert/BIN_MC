@@ -42,7 +42,7 @@ class MuonDecay(object):
         beam_dtheta=0.005,  # rad
         NINT=10,
         NINT_warmup=10,
-        NEVAL=1e5,
+        NEVAL=1e6,
         NEVAL_warmup=1e4,
     ):
         """simulate_decays _summary_
@@ -206,7 +206,6 @@ class MuonDecay(object):
         self.w = self.df_gen["w_flux"].to_numpy()  # flux of emitted W; momenta of W?
 
         self.sample_size = np.size(self.pmu[:, 0])
-        print(self.sample_size)
 
         # Energies
         self.Emu = self.pmu[:, 0]
@@ -320,14 +319,10 @@ class MuonDecay(object):
             self.d_nue = np.sqrt((self.int_points[:,0,0,2] - 0)**2 + (self.int_points[:,0,2,2] - self.Racc)**2)
 
             #masks
-            self.mask_numu = np.array(
-                (self.d_numu < self.Rdet)
-                & (self.d_numu > self.Rhole)
-            )
-            self.mask_nue = np.array(
-                (self.d_nue < self.Rdet)
-                & (self.d_nue > self.Rhole)
-            )
+            self.mask_numu =(self.d_numu < self.Rdet)& (self.d_numu > self.Rhole)
+            
+            self.mask_nue = (self.d_nue < self.Rdet)& (self.d_nue > self.Rhole)
+            
 
             #additional mask: if delta < pi, emitted particle cannot reach detector
             not_accepted = []
@@ -355,32 +350,28 @@ class MuonDecay(object):
                     & (self.int_points[i,1, 0, j] < self.Rdet) 
                     & (self.int_points[i,1, 0, j] > -1*self.Rdet)):
                         self.cases[i,j] = 1
-                        case = 1
 
                     elif ((self.int_points[i,2, 0, j] < self.Rdet) 
                     & (self.int_points[i,2, 0, j] > -1* self.Rdet) 
                     & (self.int_points[i,2, 2, j] < self.Rdet + self.Racc) 
                     & (self.int_points[i,2, 2, j] > self.Racc - self.Rdet)):
                         self.cases[i,j] = 2
-                        case = 2
 
                     elif ((self.int_points[i,3, 1, j] < self.det_height) 
                     & (self.int_points[i,3, 1, j] > 0) 
                     & (self.int_points[i,3, 2, j] < self.Rdet + self.Racc) 
                     & (self.int_points[i,3, 2, j] > self.Racc - self.Rdet)):
                         self.cases[i,j] = 3
-                        case = 3
                     
                     elif ((self.int_points[i,4, 1, j] < self.det_height) 
                     & (self.int_points[i,4, 1, j] > 0) 
                     & (self.int_points[i,4, 2, j] < self.Rdet + self.Racc) 
                     & (self.int_points[i,4, 2, j] > self.Racc - self.Rdet)):
                         self.cases[i,j] = 4
-                        case = 4
+
                     
                     else:
                         self.cases[i,j] = 0
-                        case = 0
                     
                     #case = self.cases[i,j]
                     self.heights[i,j] = D3distance(self.int_points[i,int(self.cases[i,j]), :, j], self.int_points[i,0,:,j])
@@ -408,11 +399,7 @@ class MuonDecay(object):
             return self.nue_eff_ND, self.numu_eff_ND
 
         print(
-            "Detector acceptance:",
-            self.nue_eff_ND,
-            " for nue, and",
-            self.numu_eff_ND,
-            "for numu.",
+            "Detector acceptance: {:.2e} for nue and {:.2e} for numu".format(self.nue_eff_ND, self.numu_eff_ND)
         )
 
         if self.nue_eff_ND > 0 and self.numu_eff_ND > 0:
