@@ -119,13 +119,14 @@ def show_events(RA = 1e6, DH = 1e3,DD = [3e2, 0], p_min = 0, p_max = 3e3, p0 = 1
 def get_particles(parameters="mutristan_small"):
 
     param_set = useful_data.parameters[parameters]
-    mdb = fluxMC.MuonDecay()
+    mdb = fluxMC.MuonDecay(N_mu =param_set['Nmu'] )
 
     df = mdb.simulate_decays(
                             pmin = param_set["pmin"], #minimum momentum
                             pmax = param_set["pmax"],  #maximum momentum
                             beam_p0 = param_set["beam_p0"], # average momentum (GeV)
                             beam_dpop = param_set["beam_dpop"],# little beam spread
+                            beam_dtheta = param_set["beam_dtheta"],
                             Rpm=0.5, #Fraction of total muons that are plus (or minus?)
                             NINT=10, #for MC integration
                             NINT_warmup=10,

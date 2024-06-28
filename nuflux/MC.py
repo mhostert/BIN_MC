@@ -25,7 +25,7 @@ class MC_events(object):
         mnu1=0, #why this approximation?
         mnu2=0,
         beam_p0=3.8,  # GeV
-        beam_dpop=0.10,  # sigma / p
+        beam_dpop=0.10,  # sigma / p 
         beam_theta0=0.0,  # rad #what is this again
         beam_dtheta=0.005,  # rad 
         NINT=10,

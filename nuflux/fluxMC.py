@@ -37,13 +37,14 @@ class MuonDecay(object):
         tmin=0.0,  # rad
         tmax=1.0,  # rad
         beam_p0=3.8,  # GeV
-        beam_dpop=0.10,  #
+        beam_dpop=0.001,  #
         beam_theta0=0.0,  # rad
         beam_dtheta=0.005,  # rad
         NINT=10,
         NINT_warmup=10,
         NEVAL=1e6,
         NEVAL_warmup=1e4,
+        Nmu = 2e19 #arbitrary
     ):
         """simulate_decays _summary_
 
@@ -71,7 +72,7 @@ class MuonDecay(object):
         _type_
             _description_
         """
-
+        
         Mparent = const.m_mu  # mass of the muon
         Mdaughter = const.m_e  # mass of the electron
         # muon helicities h #
