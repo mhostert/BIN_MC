@@ -224,6 +224,8 @@ class cc:
 
     def straight_segment_at_detector(self, ssl):
         #ssl is straight segment length, ENTIRE, not half
+        if ssl==0:
+            return self
         self.L = ssl/2
         self.d = np.sqrt(self.sim.Racc**2 - self.L**2)
 
@@ -272,6 +274,7 @@ class cc:
 class material:
     def __init__(self):
         self.N = 0
+        self.density = 0
 
 class subs(material):
     def __init__(self, density, am, A):
@@ -285,4 +288,5 @@ class comp(material):
     def __init__(self, table):
         super().__init__()
         for row in table:
+            self.density += row[0].density * row[1]
             self.N += row[0].N * row[1] #row[0] is N of an element; row[1] is the percentage of it that occupies the total material

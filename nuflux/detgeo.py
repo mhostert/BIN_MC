@@ -204,7 +204,7 @@ class SimulateDetector():
         else:
             raise ValueError("No particle of that name incldued in the detector!")
 
-    def get_face_counts(self):
+    def get_face_counts(self, arg, sim2):
         self.facecounts = copy.deepcopy(self.face_dict)
         locs = self.location[:, :-1]
         for key in self.face_dict.keys():
@@ -213,8 +213,24 @@ class SimulateDetector():
                 mask = (locs == face)
                 total += np.sum(self.part_face_counts[mask])
             self.facecounts[key] = total
-            print('{:.3g} decays in {}'.format(total, key))
-        print('{:.3g} total decays'.format(np.sum(self.part_face_counts)))
+            if arg != 'both':
+                print('{:.3g} decays in {}'.format(total, key))
+
+        if arg =='both':
+            facecounts = copy.deepcopy(sim2.face_dict)
+            locs = sim2.location[:, :-1]
+            for key in facecounts.keys():
+                total = 0
+                for face in facecounts[key]:
+                    mask = (locs == face)
+                    total += np.sum(sim2.part_face_counts[mask])
+                self.facecounts[key] += total
+                print('{:.3g} decays in {}'.format(self.facecounts[key], key))
+            
+            print('{:.3g} total decays'.format(np.sum(self.part_face_counts) + np.sum(sim2.part_face_counts)))
+        
+        else:
+            print('{:.3g} total decays'.format(np.sum(self.part_face_counts)))
         
 
 def plot_sim(geom):
