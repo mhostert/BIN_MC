@@ -20,6 +20,7 @@ class cap:
         self.rend = rend
 
     def check_intersection(self, position,momenta, mask): #position and momentum will be in (sample_size, 3) shape, 0,0,0 is center of detector
+        print(position.shape, momenta.shape, mask.shape)
         return cap_check_i(self.zpos, self.rbeg, self.rend, position, momenta, mask)
 
 
@@ -34,8 +35,9 @@ class barrel:
         self.zend = zend
 
     def check_intersection(self, position,momenta, mask):
+        print(position.shape, momenta.shape, mask.shape)
         indices = np.where(mask)[0] #array of indices of particles that we will consider
-        a,b,c = barrel_get_pols(self.rpos, position, momenta, indices)
+        a,b,c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
 
         coeffs = np.vstack((a,b,c)).T #( indices size), 3)
         roots=np.empty((a.shape[0], 2))
@@ -51,6 +53,7 @@ class barrel:
             else:
                 root1[1] = root[1]    
             roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
+            
         info =  barrel_check_i(self.zbeg, self.zend, position, momenta, indices, roots)
         return info[0], info[1]
                     
@@ -72,6 +75,7 @@ class conic:
             self.zcenter = zbeg - rsmall/tan_theta
 
     def check_intersection(self, position,momenta, mask):
+        print(position.shape, momenta.shape, mask.shape)
         info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
         return info[0], info[1]
         
@@ -85,18 +89,29 @@ class initializer:
         self.rsmall = rsmall
         self.rbig = rbig
     
-    def check_in(self, r,t, mask):
-        return init_check_in(self.rbig, self.rsmall, r, t.reshape((t.shape[0],)), mask)
+    def check_in(self, r, mask):
+        indices = np.where(mask)[0]
+        new_mask =  (r[indices] < self.rbig)
+        return indices[np.where(new_mask)[0]]
 
 class decayer:
 
-    def __init__(self, parent, id, next_ids):
+    def __init__(self, parent, id, next_ids, last):
         self.density = parent.density
         self.id = id
         self.next_ids = next_ids
+        self.last = last
+    
+    def check_in(self, neighbor, zs, mask_decay, loc_mask):
+        indices = np.where(mask_decay)[0]
+        if neighbor.id == self.last:
+            return indices[np.where(loc_mask)[0]], loc_mask
+        local_mask = (zs > 0) & ((zs < neighbor.zend) & (loc_mask))
+        return indices[np.where(local_mask)[0]], local_mask
+        
 
 @njit
-def cap_check_i(zpos, rbeg, rend, position, momenta, mask):
+def cap_check_i(zpos, rbeg, rend, position, momenta, mask): 
     indices = np.where(mask)[0] #array of indices of particles that we will consider
     delta_z = zpos - position[indices][:,2]
     t = delta_z / momenta[indices][:,2]
@@ -106,11 +121,7 @@ def cap_check_i(zpos, rbeg, rend, position, momenta, mask):
     kept_indices = indices[np.where(mask_new)[0]] #indexing the indices to get the number of the particles
     return kept_indices, ip[mask_new]
 
-@njit
-def init_check_in(rbig, rsmall, r, to, mask):
-    indices = np.where(mask)[0]
-    new_mask = (r[indices] < rbig) & (r[indices]> rsmall) & (to[indices] > 0)
-    return indices[np.where(new_mask)[0]]
+
 
 @njit
 def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
@@ -131,7 +142,6 @@ def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
         if isinstance(root[1], complex):
             root[1] = -1
         roots[i,:] = root# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
-
     ip_1 = position[indices] + roots[:,0][:, np.newaxis] * momenta[indices]
     ip_2 = position[indices] + roots[:,1][:, np.newaxis] * momenta[indices]
     #conditions: assert r between rsmall and (zcenter - zbeg)*tan_theta, z between zend and zbeg (first), root is positive
@@ -153,10 +163,10 @@ def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
     return kept_indices, ip
 
 @njit
-def barrel_get_pols(rpos, position, momenta, indices):
-    a = (momenta[indices,0])**2 + (momenta[indices,1])**2
-    b = 2 * (position[indices,0]*momenta[indices,0] + position[indices,1]*momenta[indices,1])
-    c = position[indices,1]**2 + position[indices,0]**2 - rpos**2
+def barrel_get_pols(rpos, position, momenta):
+    a = (momenta[:,0])**2 + (momenta[:,1])**2
+    b = 2 * (position[:,0]*momenta[:,0] + position[:,1]*momenta[:,1])
+    c = position[:,1]**2 + position[:,0]**2 - rpos**2
     return a,b,c
 
 @njit

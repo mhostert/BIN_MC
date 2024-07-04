@@ -180,7 +180,8 @@ class MuonDecay(object):
         circular = False,
         Racc = 1e6,
         Ddetector = [3e2, 20],
-        det_height = 10e2
+        det_height = 10e2,
+        get_int = True
     ):
         self.ZBEAMEND = ZBEAMEND  # cm
         self.ZBEAMEXIT = ZBEAMEXIT  # cm
@@ -235,18 +236,18 @@ class MuonDecay(object):
             self.pos_at[1,:] = self.Racc*np.sin(self.delta)
             self.pos_at[2,:] = self.Racc*np.cos(self.delta)
 
-
-            self.momenta = [self.pe_ar, self.pnumu_ar, self.pnue_ar]
+            if get_int:
+                self.momenta = [self.pe_ar, self.pnumu_ar, self.pnue_ar]
             
-            #This array will have all the coordinates for the intersection points, xyz; first for y = 0, then z= Racc + Rdet, then y = det_height, then x = Rdet, then x = - Rdet ; then it will do it for all three particles
-            self.int_points = np.empty([self.sample_size, 5, 3, 3])
-            #intersection point momentum - y=0 plane$ FOR ACCEPTANCE
-            for i,p in enumerate(self.momenta):
-                self.int_points[:,0,:, i] = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((self.sample_size,1)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
-                self.int_points[:, 1, :, i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[2,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Racc + self.Rdet)),p[:,1:4]) , p[:, 3].reshape(self.sample_size, 1))
-                self.int_points[:,2,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[1,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.det_height)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
-                self.int_points[:,3,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
-                self.int_points[:,4,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1),  -1*self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
+                #This array will have all the coordinates for the intersection points, xyz; first for y = 0, then z= Racc + Rdet, then y = det_height, then x = Rdet, then x = - Rdet ; then it will do it for all three particles
+                self.int_points = np.empty([self.sample_size, 5, 3, 3])
+                #intersection point momentum - y=0 plane$ FOR ACCEPTANCE
+                for i,p in enumerate(self.momenta):
+                    self.int_points[:,0,:, i] = self.pos_at.T - np.divide(np.multiply(self.pos_at[1,:].reshape((self.sample_size,1)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
+                    self.int_points[:, 1, :, i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[2,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Racc + self.Rdet)),p[:,1:4]) , p[:, 3].reshape(self.sample_size, 1))
+                    self.int_points[:,2,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[1,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.det_height)),p[:,1:4]) , p[:, 2].reshape(self.sample_size, 1))
+                    self.int_points[:,3,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1), self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
+                    self.int_points[:,4,:,i] = self.pos_at.T - np.divide(np.multiply((self.pos_at[0,:].reshape((self.sample_size,1)) - np.full((self.sample_size, 1),  -1*self.Rdet)),p[:,1:4]) , p[:, 1].reshape(self.sample_size, 1))
 
             
             """planes for detector: Racc is the radius of accelerator, Rdet is the radius of the detector, Rhole is the radius of the hole.

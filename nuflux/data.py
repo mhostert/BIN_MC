@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import DarkNews as dn
-from scipy import interpolate
 from scipy.stats import binom
 
 from nuflux import fluxMC
@@ -136,5 +135,6 @@ def get_particles(parameters="mutristan_small"):
 
     _= mdb.propagate_to_detector(
                             Racc = param_set["Racc"],
-                            circular = param_set["circular"]) #arbitrary dimensions for circ detect SHEET at x = 0, y=0, z = Racc ; [0] is radius of detector and [1] is the hollow hole in the middle 
+                            circular = param_set["circular"],
+                            get_int=False) #arbitrary dimensions for circ detect SHEET at x = 0, y=0, z = Racc ; [0] is radius of detector and [1] is the hollow hole in the middle 
     return mdb

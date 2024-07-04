@@ -26,8 +26,8 @@ outside = face(0)
 
 # decayers have: id, next_ids
 
-minus_two = decayer(nozzle, -2, [13, 50]) #decays outside beampipe, if any
-minus_one = decayer(beampipe,-1, [15, 16, 17, 18]) #decays in beampipe
+minus_two = decayer(nozzle, -2, [13, 50], 50) #decays outside beampipe, if any
+minus_one = decayer(beampipe,-1, [15, 16, 17, 18], 18) #decays in beampipe
 
 zero = cap(outside,0, [], 0,0,0) # needs only the special = "end"
 
@@ -204,3 +204,4 @@ DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero, four, five, fifty, eighteen]
 iterations = 35
 facedict = {}
+TESTS = []

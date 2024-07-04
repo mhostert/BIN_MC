@@ -23,8 +23,8 @@ outside = face(0)
 
 # decayers have: id, next_ids
 
-minus_two = decayer(cone, -2, [18,17,19,20, 27,36])
-minus_one = decayer(outside,-1, [4,5,6,7])
+minus_two = decayer(cone, -2, [18,17,19,20, 27,36], 7)
+minus_one = decayer(outside,-1, [4,5,6,7], 7)
 
 zero = cap(outside,0, [], 0,0,0) # needs only the special = "end"
 
@@ -87,8 +87,9 @@ zbeginning = -564
 rmax = 645
 rbp = 3
 zending = -1 * zbeginning
-INITIALIZERS = [one, two, three] #should not contain minus_one or zero
+INITIALIZERS = [three, two, one] #should not contain minus_one or zero
 DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero,seven, fifteen, sixteen, twentyseven]
 iterations = 25
 facedict = {}
+TESTS = []
