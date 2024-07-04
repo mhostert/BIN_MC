@@ -5,7 +5,7 @@ from scipy.stats import binom
 
 from nuflux import fluxMC
 import sys
-sys.path.append("/home/luc/Research/BIN_MC/nuflux/detector_geometries")
+sys.path.append("/n/home06/lbojorquezlopez/BIN_MC/nuflux/detector_geometries")
 import useful_data
 
 

@@ -7,12 +7,13 @@ import copy
 import importlib
 
 import sys
-sys.path.append("/home/luc/Research/BIN_MC/nuflux/detector_geometries")
+sys.path.append("/n/home06/lbojorquezlopez/BIN_MC/nuflux/detector_geometries")
 import helpers
 import useful_data
 import time
-from numba import njit
+from numba import njit, jit
 from prettytable import PrettyTable
+from memory_profiler import profile
 
 def D3distance(point1, point2):
     return np.sqrt((point1[:,0] - point2[:,0])**2 + (point1[:,1] - point2[:,1])**2 + (point1[:,2] - point2[:,2])**2)
@@ -29,6 +30,7 @@ def get_quantities(sim):
 
 class SimulateDetector():
 
+    #@profile
     def __init__(self, coord_object, geom, particle):
         self.time = np.zeros(7)
         self.cc = coord_object
@@ -59,11 +61,12 @@ class SimulateDetector():
         self.tests = geom.TESTS
         self.outside_ids = np.array([obj.id for obj in self.outside])
         self.iterations = geom.iterations #size of the interactions_points array, one more than distances and densities
+        geom = None
         
 
         self.initialize_quantities()
 
-
+    #@profile
     def find_info(self): 
         
         #first interaction points
@@ -168,7 +171,8 @@ class SimulateDetector():
             count+=1
 
         self.time[3] = time.time()
-
+    
+    #@profile
     def get_probs(self):
 
         for i in range(self.iterations - 1):
@@ -183,7 +187,8 @@ class SimulateDetector():
         self.counts = self.factors * self.probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
         self.total_count = np.sum(self.counts)
         self.time[4] = time.time()
-
+    
+    #@profile
     def get_event_positions(self):
         '''weights have already been given'''
 
@@ -197,7 +202,7 @@ class SimulateDetector():
         self.time[6] = time.time()
         return
 
-
+    #@profile
     def initialize_quantities(self):
 
         self.intersection_points = np.full((self.sample_size, self.iterations, 3), 1e4) #1e4 is arbitrary
@@ -219,7 +224,7 @@ class SimulateDetector():
 
     
     def update_intersections(self, obj, count, mask):
-        t0 = time.time()
+        #t0 = time.time()
         for neighbor in obj.next_ids:
             neigh = self.objects[neighbor]
             new_indices, ips = neigh.check_intersection(self.intersection_points[:,count - 1,:], self.momenta, mask)
@@ -229,8 +234,9 @@ class SimulateDetector():
             self.intersection_points[accepted_ix, count, :] = ips[mask_1]
             self.location[accepted_ix, count] = neigh.id
             self.densities[accepted_ix, count-1] = obj.density
-        print(time.time() - t0, obj.id)
-
+        #print(time.time() - t0, obj.id)
+    
+    #@profile
     def run(self):
         if (self.particle == "nue") | (self.particle == "numu"):
             self.time[0] = time.time()
@@ -238,11 +244,14 @@ class SimulateDetector():
             self.get_probs()
             self.get_event_positions()
             print("{:.3g} {} events".format(self.total_count, self.particle))
-            print('time: {:.3g} for initialization;\n{:.3g} for initial objects;\n{:.3g} for other objects;\n{:.3g} for probs;\n{:.3g} for MC event positions;\n{:.3g} for event positions;\n{:.3g} for total time.'.format(
+            
+            '''print('time: {:.3g} for initialization;\n{:.3g} for initial objects;\n{:.3g} for other objects;\n{:.3g} for probs;\n{:.3g} for MC event positions;\n{:.3g} for event positions;\n{:.3g} for total time.'.format(
                 self.time[1] - self.time[0],self.time[2] - self.time[1], 
                 self.time[3] - self.time[2], self.time[4] - self.time[3], 
                 self.time[5] - self.time[4],self.time[6] - self.time[5],
-                self.time[6] - self.time[0]))
+                self.time[6] - self.time[0]))'''
+            
+            print(f'sim time: {(self.time[6] - self.time[0]):.3g}')
             if self.particle =='numu':
                 return self, None
             else:
@@ -253,13 +262,17 @@ class SimulateDetector():
             self.update_params()
             self.run()
             _, sim2 = SimulateDetector(self.cc, self.Geometry, 'nue').run()
-
-            print("{:.3g} total events".format(self.total_count + sim2.total_count))
+            
+            self.get_face_counts('both', sim2)
+            #print("{:.3g} total events".format(self.total_count + sim2.total_count))
+            self.clear_mem()
+            sim2.clear_mem()
             return self, sim2
         
         else:
             raise ValueError("No particle of that name incldued in the detector!")
-
+    
+    #@profile
     def get_face_counts(self, arg, sim2):
 
         # Example usage within your class
@@ -298,7 +311,11 @@ class SimulateDetector():
         _,_ = self.tests[1].check_intersection(pos3, pos3, other)
         _,_ = self.tests[2].check_intersection(pos3, pos3, other)
         return self
+    
+    def clear_mem(self):
+        pass
 
+@jit(nopython = False, forceobj=True)
 def calculate_facecounts(face_dict, location, part_face_counts):
     facecounts = {}
     locs = location[:, :-1]
@@ -347,6 +364,7 @@ def get_events_njit2(shape, pweights, mid, mask, counts, dec_pos, normed_m, cumu
     part_face_counts = counts * pweights # these are the face counts (expected)
     events_position = dec_pos + int_parameters[:,:,np.newaxis] * normed_m
     return events_position, part_face_counts
+
 
 def plot_sim(geom):
 

@@ -20,7 +20,7 @@ class cap:
         self.rend = rend
 
     def check_intersection(self, position,momenta, mask): #position and momentum will be in (sample_size, 3) shape, 0,0,0 is center of detector
-        print(position.shape, momenta.shape, mask.shape)
+        
         return cap_check_i(self.zpos, self.rbeg, self.rend, position, momenta, mask)
 
 
@@ -35,7 +35,7 @@ class barrel:
         self.zend = zend
 
     def check_intersection(self, position,momenta, mask):
-        print(position.shape, momenta.shape, mask.shape)
+        
         indices = np.where(mask)[0] #array of indices of particles that we will consider
         a,b,c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
 
@@ -75,7 +75,7 @@ class conic:
             self.zcenter = zbeg - rsmall/tan_theta
 
     def check_intersection(self, position,momenta, mask):
-        print(position.shape, momenta.shape, mask.shape)
+        
         info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
         return info[0], info[1]
         
