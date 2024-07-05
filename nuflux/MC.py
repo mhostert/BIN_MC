@@ -9,6 +9,8 @@ from DarkNews import const
 
 from nuflux import integrands
 
+from memory_profiler import profile
+import gc
 
 class MC_events(object):
     def __init__(
@@ -55,7 +57,8 @@ class MC_events(object):
         self.NINT_warmup = NINT_warmup
         self.NEVAL = NEVAL
         self.NEVAL_warmup = NEVAL_warmup
-
+    
+    
     def get_MC_events(self):
         if self.model == "LOmudecay_unpol": #need to look into this decay; try different ones?
             # BATCH SAMPLE INTEGRAN OF INTEREST
@@ -86,7 +89,13 @@ class MC_events(object):
         # add weights to it
         df_gen["w_flux"] = weights["diff_rate"]
         df_gen["w_decay_rate"] = weights["diff_decay_rate"]
-
+        del integrals
+        del weights
+        del four_momenta
+        del samples
+        del integ
+        del batch_f
+        gc.collect()
         return df_gen
 
 

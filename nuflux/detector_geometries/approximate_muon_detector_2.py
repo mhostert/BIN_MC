@@ -37,7 +37,7 @@ three = initializer(beampipe, 3, [15,16,17,18], 0., 2.2)
 
 four = barrel(outside, 4, [], 645., -563.8, 563.8)
 five = cap(outside, 5, [], 563.8, 78.2, 645.)
-six = cap(space_between, 6, [19,20,21,22,89, 90, 91, 92], -417.9, 57.5,  446.1)
+six = cap(space_between, 6, [19,20,21,22,26, 89, 90, 91, 92], -417.9, 57.5,  446.1)
 seven = barrel(space_between, 7, [22,26,31,34], 446.1, -417.9, 417.9)
 
 eightyeight = cap(muon_detector, 88, [4,5,7], -417.9, 446.1, 645.)

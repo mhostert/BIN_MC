@@ -7,9 +7,9 @@ from particle import literals as lp
 
 from DarkNews import const
 from DarkNews import Cfourvec as Cfv
-
+from memory_profiler import profile
 from nuflux import MC
-
+import gc
 
 def get_flux(x, w, nbins):
     TMIN = np.min(x)
@@ -28,6 +28,7 @@ class MuonDecay(object):
 
     #######################################
     # Use vegas to simulate mu decays
+    
     def simulate_decays(
         self,
         Rpm=0.5,  # fraction that are plus helicity
@@ -120,7 +121,11 @@ class MuonDecay(object):
         self.df_gen = pd.concat([df_plus, df_minus], axis=0).reset_index(
             drop=True
         )  # adds all helicities together
-
+        del df_plus
+        del df_minus
+        del h_plus
+        del h_minus
+        gc.collect()
         return self.df_gen
 
     #######################################
@@ -168,6 +173,7 @@ class MuonDecay(object):
 
         return self.rmu, self.rvec_mu
 
+    #@profile
     def propagate_to_detector(
         self,
         ZBEAMEND=250e2,  # cm
@@ -197,16 +203,16 @@ class MuonDecay(object):
         self.include_beamdiv = include_beamdiv
         self.truncate_exp = truncate_exp
 
-        self.pmu = self.df_gen["P_decay_mu"].to_numpy()  # all muon decaying momenta
-        self.pe = self.df_gen["P_decay_e"].to_numpy()  # all emitted electrons momenta
-        self.pnue = self.df_gen[
+        self.pmu = np.copy(self.df_gen["P_decay_mu"].to_numpy())  # all muon decaying momenta
+        self.pe = np.copy(self.df_gen["P_decay_e"].to_numpy())  # all emitted electrons momenta
+        self.pnue = np.copy(self.df_gen[
             "P_decay_nu_e"
-        ].to_numpy()  # all emitted electron neutrinos momenta
-        self.pnumu = self.df_gen[
+        ].to_numpy())  # all emitted electron neutrinos momenta
+        self.pnumu = np.copy(self.df_gen[
             "P_decay_nu_mu"
-        ].to_numpy()  # all emitted muonic neutrinos momenta
-        self.w = self.df_gen["w_flux"].to_numpy()  # flux of emitted W; momenta of W?
-
+        ].to_numpy())  # all emitted muonic neutrinos momenta
+        self.w = np.copy(self.df_gen["w_flux"].to_numpy())  # flux of emitted W; momenta of W?
+        self.df_gen = None
         self.sample_size = np.size(self.pmu[:, 0])
 
         # Energies
@@ -225,9 +231,9 @@ class MuonDecay(object):
             self.delta = self.rvec_mu[:, 2] / self.Racc % 2*np.pi
 
             #counterclockwise - new momentum
-            self.pe_ar = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2))
-            self.pnumu_ar = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2))
-            self.pnue_ar = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2))
+            self.pe[:,:] = Cfv.rotationx(self.pe, -1*(self.delta + np.pi/2))
+            self.pnumu[:,:] = Cfv.rotationx(self.pnumu, -1*(self.delta + np.pi/2))
+            self.pnue[:,:] = Cfv.rotationx(self.pnue, -1*(self.delta + np.pi/2))
             
 
             #translate coordinate axis - assign new coordinate positions based on deltay

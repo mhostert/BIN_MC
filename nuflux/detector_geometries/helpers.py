@@ -196,86 +196,94 @@ def barrel_check_i(zbeg, zend, position,momenta, indices, roots):
 
 class cc:
 
-    def __init__(self, sim):
+    def __init__(self, R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at):
         
-        self.sim = sim
-        self.weights = self.sim.w / np.sum(self.sim.w)
-        self.Enumu = self.sim.Enumu
-        self.Enue =self.sim.Enue
-        self.Nmu = self.sim.N_mu
+        self.Racc = R
+        nw = np.copy(w)
+        del w
+        self.weights = nw / np.sum(nw)
+        self.sample_size = np.copy(sample_size)
+        self.Nmu = N_mu
 
-        old_m = self.sim.pnumu_ar[:,1:4] # after initial rotation within program, no need to translate
-        old_m2 = self.sim.pnue_ar[:,1:4]
-        po = self.sim.pos_at.T #need to translate
+        old_m = pnumu_ar[:,1:4] # after initial rotation within program, no need to translate
+        old_m2 = pnue_ar[:,1:4]
+        po = np.copy(pos_at).T #need to translate
+        
         old_p = np.copy(po)
-        old_p[:,2] = po[:,2] - self.sim.Racc
+        old_p[:,2] = po[:,2] - self.Racc
 
-        self.mnumu = np.empty(old_m.shape)
-        self.mnue = np.empty(old_m2.shape)
+        mnumu = np.empty(old_m.shape)
+        mnue = np.empty(old_m2.shape)
         self.p = np.empty(old_p.shape)
 
         old = [old_m, old_m2, old_p]
-        new = [self.mnumu, self.mnue, self.p]
+        new = [mnumu, mnue, self.p]
         for i, coord in enumerate(new):
             coord[:,0] = -1 * old[i][:,0]
             coord[:,1] = old[i][:,2]
             coord[:,2] = old[i][:, 1]
         
-        self.pnumu = np.empty((self.mnumu.shape[0], 4))
-        self.pnue = np.empty((self.mnue.shape[0], 4))
+        self.pnumu = np.empty((self.sample_size, 4))
+        self.pnue = np.empty((self.sample_size, 4))
+        
+        self.pnumu[:,0] = np.copy(Enumu)
+        self.pnue[:,0] = np.copy(Enue)
+        self.pnumu[:,1:] =mnumu
+        self.pnue[:,1:] = mnue
+        
+        del Enumu
+        del Enue
+        del pnumu_ar
+        del pnue_ar
+        del pos_at
+        
 
-        self.pnumu[:,0] = self.Enumu
-        self.pnue[:,0] = self.Enue
-        self.pnumu[:,1:] = self.mnumu
-        self.pnue[:,1:] = self.mnue
-    
-    def completely_circular(self):
-        return self
-
-    def straight_segment_at_detector(self, ssl):
+    def straight_segment_at_detector(self, f, h):
         #ssl is straight segment length, ENTIRE, not half
-        if ssl==0:
+        if f==0:
             return self
-        self.L = ssl/2
-        self.d = np.sqrt(self.sim.Racc**2 - self.L**2)
+        
+        self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
+        print(self.Lc)
+        L = (f * self.Lc)/2
+        d = np.sqrt(self.Racc**2 - L**2)
 
         #mask - change everything that is on the straight segment
-        self.sample_size = self.p.shape[0]
-        self.mask = (self.p[:, 2] > -1*self.L) & (self.p[:,2] < self.L) & (self.p[:,1] > - self.sim.Racc)
+
+        mask = (self.p[:, 2] > -1*L) & (self.p[:,2] < L) & (self.p[:,1] > - self.Racc)
 
 
-        self.new_p = np.copy(self.p)
-        self.new_mnumu = np.copy(self.mnumu)
-        self.new_mnue = np.copy(self.mnue)
+        new_p = np.copy(self.p)
+        new_mnumu = np.copy(self.pnumu[:,1:])
+        new_mnue = np.copy(self.pnue[:,1:])
 
         #lower dimension quantities
-        self.dphi = np.arcsin(self.p[:,2] / self.sim.Racc)
-        self.lengths = self.dphi * self.sim.Racc
-        self.new_p[self.mask,2] = self.lengths[self.mask]
-        self.tantheta = self.L * np.sqrt(1 / (self.sim.Racc**2 - self.L**2))
+        dphi = np.arcsin(self.p[:,2] / self.Racc)
+        lengths = dphi * self.Racc
+        new_p[mask,2] = lengths[mask]
+        tantheta = L * np.sqrt(1 / (self.Racc**2 - L**2))
     
-        self.new_p[self.mask,0] = self.p[self.mask, 0]
-        self.new_p[self.mask,1] = np.zeros((np.sum(self.mask), )) #approximation; these don't actually have y= 0, they are a little off the beam
+        new_p[mask,0] = self.p[mask, 0]
+        new_p[mask,1] = np.zeros((np.sum(mask), )) #approximation; these don't actually have y= 0, they are a little off the beam
 
         #these are on lower dimension already
-        self.maskleft = (self.dphi  < 0) & (self.mask)
-        self.maskright = (self.dphi > 0) & (self.mask)
+        maskleft = (dphi  < 0) & (mask)
+        maskright = (dphi > 0) & (mask)
 
 
         
-        self.new_mnumu[self.maskleft, :] = Cfv.rotationx(self.pnumu[self.maskleft], -1*(self.dphi[self.maskleft]))[:,1:] #lower dimension
-        self.new_mnumu[self.maskright, :] = Cfv.rotationx(self.pnumu[self.maskright], (self.dphi[self.maskright]))[:,1:] #lower dimension
-        self.new_mnue[self.maskleft, :] = Cfv.rotationx(self.pnue[self.maskleft], -1 * (self.dphi[self.maskleft]))[:, 1:] #lower dimension
-        self.new_mnue[self.maskright, :] = Cfv.rotationx(self.pnue[self.maskright], (self.dphi[self.maskright]))[:, 1:] #lower dimension
+        new_mnumu[maskleft, :] = Cfv.rotationx(self.pnumu[maskleft], -1*(dphi[maskleft]))[:,1:] #lower dimension
+        new_mnumu[maskright, :] = Cfv.rotationx(self.pnumu[maskright], (dphi[maskright]))[:,1:] #lower dimension
+        new_mnue[maskleft, :] = Cfv.rotationx(self.pnue[maskleft], -1 * (dphi[maskleft]))[:, 1:] #lower dimension
+        new_mnue[maskright, :] = Cfv.rotationx(self.pnue[maskright], (dphi[maskright]))[:, 1:] #lower dimension
 
-        self.notmask = ~self.mask
-        self.new_p[self.notmask, 1] = self.p[self.notmask, 1] + self.sim.Racc - self.L/self.tantheta
+        notmask = ~mask
+        new_p[notmask, 1] = self.p[notmask, 1] + self.Racc - L/tantheta
 
-        self.p = np.copy(self.new_p)
-        self.mnumu = np.copy(self.new_mnumu)
-        self.mnue = np.copy(self.new_mnue)
-
-        return self
+        self.p = np.copy(new_p)
+        self.pnumu[:,1:] = np.copy(new_mnumu)
+        self.pnue[:,1:] = np.copy(new_mnue)
+        
     
     def completely_linear(self):
         pass

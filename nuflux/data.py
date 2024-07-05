@@ -2,12 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import DarkNews as dn
 from scipy.stats import binom
-
+from memory_profiler import profile
 from nuflux import fluxMC
 import sys
-sys.path.append("/n/home06/lbojorquezlopez/BIN_MC/nuflux/detector_geometries")
+import os
+cfp = os.path.dirname(os.path.abspath(__file__))
+td = os.path.join(cfp,'detector_geometries')
+sys.path.append(td)
 import useful_data
-
+import gc
 
 def show_events(RA = 1e6, DH = 1e3,DD = [3e2, 0], p_min = 0, p_max = 3e3, p0 = 1e3, dpop = 0.1, Nmu = 1e18, rho = 1.5, mn = 939e6 *1.6e-19/(3e8)**2 * 10**3, bins = 50, plots = True):
     
@@ -114,13 +117,13 @@ def show_events(RA = 1e6, DH = 1e3,DD = [3e2, 0], p_min = 0, p_max = 3e3, p0 = 1
     return mdb
 
 
-
+#@profile
 def get_particles(parameters="mutristan_small"):
 
     param_set = useful_data.parameters[parameters]
     mdb = fluxMC.MuonDecay(N_mu =param_set['Nmu'] )
 
-    df = mdb.simulate_decays(
+    mdb.simulate_decays(
                             pmin = param_set["pmin"], #minimum momentum
                             pmax = param_set["pmax"],  #maximum momentum
                             beam_p0 = param_set["beam_p0"], # average momentum (GeV)
@@ -129,12 +132,25 @@ def get_particles(parameters="mutristan_small"):
                             Rpm=0.5, #Fraction of total muons that are plus (or minus?)
                             NINT=10, #for MC integration
                             NINT_warmup=10,
-                            NEVAL=1e5,
-                            NEVAL_warmup=1e4
+                            NEVAL=1e6,
+                            NEVAL_warmup=1e5
                             )
 
-    _= mdb.propagate_to_detector(
+    mdb.propagate_to_detector(
                             Racc = param_set["Racc"],
                             circular = param_set["circular"],
-                            get_int=False) #arbitrary dimensions for circ detect SHEET at x = 0, y=0, z = Racc ; [0] is radius of detector and [1] is the hollow hole in the middle 
-    return mdb
+                            get_int=False) 
+    
+    
+    R = np.copy(mdb.Racc)
+    w = np.copy(mdb.w)
+    sample_size = np.copy(mdb.sample_size)
+    Enumu = np.copy(mdb.Enumu)
+    Enue = np.copy(mdb.Enue)
+    N_mu=  np.copy(mdb.N_mu)
+    pnumu_ar = np.copy(mdb.pnumu)
+    pnue_ar = np.copy(mdb.pnue)
+    pos_at = np.copy(mdb.pos_at)
+    del mdb
+    gc.collect()
+    return R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at

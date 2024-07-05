@@ -7,13 +7,20 @@ import copy
 import importlib
 
 import sys
-sys.path.append("/n/home06/lbojorquezlopez/BIN_MC/nuflux/detector_geometries")
+import os
+cfp = os.path.dirname(os.path.abspath(__file__))
+td = os.path.join(cfp,'detector_geometries')
+sys.path.append(td)
+cfp = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(cfp)
 import helpers
 import useful_data
 import time
 from numba import njit, jit
 from prettytable import PrettyTable
 from memory_profiler import profile
+import data
+import gc
 
 def D3distance(point1, point2):
     return np.sqrt((point1[:,0] - point2[:,0])**2 + (point1[:,1] - point2[:,1])**2 + (point1[:,2] - point2[:,2])**2)
@@ -24,29 +31,25 @@ def get_cs(E, part):
         return sigmanue(E)
     elif part == "numu":
         return sigmanumubar(E)
-    
-def get_quantities(sim):
-    return helpers.cc(sim)
+
+#@profile
+def get_quantities(param):
+    dt = list(data.get_particles(param))
+    sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
+
+    #gc.collect()
+    #print(sys.getrefcount(dt))
+    #print(gc.get_referrers(dt))
+    del dt
+    return sim
 
 class SimulateDetector():
 
     #@profile
-    def __init__(self, coord_object, geom, particle):
+    def __init__(self, coord_object, f, geom, particle):
         self.time = np.zeros(7)
-        self.cc = coord_object
-        self.dec_pos = self.cc.p
-        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized
+        self.f = f
         self.Geometry = geom
-        self.Nmu = self.cc.Nmu
-        self.sample_size = self.dec_pos.shape[0]
-        self.particle = particle
-        if self.particle=='numu':
-            self.momenta = self.cc.mnumu
-            self.E = self.cc.Enumu
-        elif self.particle=='nue':
-            self.momenta = self.cc.mnue
-            self.E = self.cc.Enue
-
         geom = importlib.import_module(self.Geometry)
         self.objects = geom.OBJECTS
         self.object_ids = np.array([obj.id for obj in self.objects])
@@ -62,6 +65,22 @@ class SimulateDetector():
         self.outside_ids = np.array([obj.id for obj in self.outside])
         self.iterations = geom.iterations #size of the interactions_points array, one more than distances and densities
         geom = None
+        
+        self.cc = copy.deepcopy(coord_object)
+        self.cc.straight_segment_at_detector(self.f, self.rmax)
+        
+        self.dec_pos = self.cc.p
+        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized
+        self.Nmu = self.cc.Nmu
+        self.sample_size = self.cc.sample_size
+        self.particle = particle
+        if self.particle=='numu':
+            self.momenta = self.cc.pnumu[:,1:]
+            self.E = self.cc.pnumu[:,0]
+        elif self.particle=='nue':
+            self.momenta = self.cc.pnue[:,1:]
+            self.E = self.cc.pnue[:,0]
+
         
 
         self.initialize_quantities()
@@ -214,12 +233,12 @@ class SimulateDetector():
     def update_params(self):
 
         if self.particle =='numu':
-            self.momenta = self.cc.mnumu
-            self.E = self.cc.Enumu
+            self.momenta = self.cc.pnumu[:,1:]
+            self.E = self.cc.pnumu[:,0]
 
         elif self.particle == 'nue':
-            self.momenta = self.cc.mnue
-            self.E = self.cc.Enue
+            self.momenta = self.cc.pnue[:,1:]
+            self.E = self.cc.pnue[:,0]
 
     
     def update_intersections(self, obj, count, mask):
@@ -259,7 +278,9 @@ class SimulateDetector():
             self.particle="numu"
             self.update_params()
             self.run()
-            _, sim2 = SimulateDetector(self.cc, self.Geometry, 'nue').run()
+            _, sim2 = SimulateDetector(self.cc, 0, self.Geometry, 'nue').run()
+            
+            
             
             self.get_face_counts('both', sim2)
             #print("{:.3g} total events".format(self.total_count + sim2.total_count))
@@ -293,23 +314,7 @@ class SimulateDetector():
 
         print(table)
     
-    def compile_numba(self):
-        temp2 = np.ones((self.sample_size, 1), dtype=np.float64)
-        other = np.array([False]*self.sample_size)
-        other[0] = True
-        other[1] = True
-        ot2 = np.ones((self.sample_size,self.iterations - 1), dtype=np.float64)
-        pos3 = np.ones((self.sample_size,3), dtype=np.float64)
-        pos4 = np.zeros((self.sample_size,3), dtype=np.float64)
-        pos4[:,2] += 1.
-        pos3[:,1] +=10.
-        _ = get_events_njit1(temp2, temp2, other)
-        _ = get_events_njit2(ot2.shape, ot2, temp2, other,temp2, pos3[:,np.newaxis,:], pos3[:,np.newaxis,:], ot2, ot2[other])
-        _,_ = self.tests[0].check_intersection(pos4, pos3, other)
-        _,_ = self.tests[1].check_intersection(pos3, pos3, other)
-        _,_ = self.tests[2].check_intersection(pos3, pos3, other)
-        return self
-    @profile
+    #@profile
     def clear_mem(self):
         self.cc = None
         self.dec_pos = None
@@ -326,9 +331,9 @@ class SimulateDetector():
         self.location = None
         self.events_position = self.events_position[self.mask, :, :]
         self.part_face_counts = self.part_face_counts[self.mask,:]
-        self.E = None
+        self.E = self.E[self.mask]
         self.distances = None
-        self.cs = None
+        self.cs = self.cs[self.mask]
         self.counts = None
         self.part_line_integrals = None
         self.densities = None
