@@ -39,7 +39,7 @@ class barrel:
         indices = np.where(mask)[0] #array of indices of particles that we will consider
         a,b,c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
 
-        coeffs = np.vstack((a,b,c)).T #( indices size), 3)
+        '''coeffs = np.vstack((a,b,c)).T #( indices size), 3)
         roots=np.empty((a.shape[0], 2))
         for i,poly in enumerate(coeffs):
             root = np.roots(poly)
@@ -52,9 +52,11 @@ class barrel:
                 root1[1] = -1
             else:
                 root1[1] = root[1]    
-            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
+            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two'''
+        
+        info = get_sols(a,b,c, self.zbeg, self.zend, position[mask], momenta[mask], mask)
             
-        info =  barrel_check_i(self.zbeg, self.zend, position, momenta, indices, roots)
+        #info =  barrel_check_i(self.zbeg, self.zend, position, momenta, indices, roots)
         return info[0], info[1]
                     
 
@@ -76,7 +78,10 @@ class conic:
 
     def check_intersection(self, position,momenta, mask):
         
-        info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
+        a,b,c = conic_get_pols(self.zcenter, self.tan_theta, position[mask], momenta[mask])
+        info = get_sols(a,b,c, self.zbeg, self.zend, position[mask], momenta[mask], mask)
+        
+        #info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
         return info[0], info[1]
         
 
@@ -123,7 +128,7 @@ def cap_check_i(zpos, rbeg, rend, position, momenta, mask):
 
 
 
-@njit
+'''@njit
 def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
     indices = (np.where(mask)[0]) #indices of particles that we will consider
     delta_z = zcenter - position[indices,2]
@@ -142,11 +147,12 @@ def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
         if isinstance(root[1], complex):
             root[1] = -1
         roots[i,:] = root# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
-    ip_1 = position[indices] + roots[:,0][:, np.newaxis] * momenta[indices]
-    ip_2 = position[indices] + roots[:,1][:, np.newaxis] * momenta[indices]
+        
+    ip_1 = position[indices,2] + roots[:,0]*momenta[indices,2] # only z
+    ip_2 = position[indices,2] + roots[:,1]*momenta[indices,2] # only z
     #conditions: assert r between rsmall and (zcenter - zbeg)*tan_theta, z between zend and zbeg (first), root is positive
-    new_mask_1 = (ip_1[:,2] > zbeg) & (ip_1[:,2] < zend) & (np.round(roots[:,0], decimals = 12) > 0)
-    new_mask_2 = (ip_2[:,2] > zbeg) & (ip_2[:,2] < zend) & (np.round(roots[:,1], decimals = 12) > 0)
+    new_mask_1 = (ip_1 > zbeg) & (ip_1 < zend) & (np.round(roots[:,0], decimals = 12) > 0)
+    new_mask_2 = (ip_2 > zbeg) & (ip_2 < zend) & (np.round(roots[:,1], decimals = 12) > 0)
             
     t = roots.copy() #need t to get the correct root
     any = new_mask_1 | new_mask_2
@@ -160,7 +166,7 @@ def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
     ip = position[indices][any] + t[:,0][any, np.newaxis] * momenta[indices][any]
     kept_indices = indices[np.where(any)[0]] # indexing the indices to get the correct particle numbers (ids)
         
-    return kept_indices, ip
+    return kept_indices, ip'''
 
 @njit
 def barrel_get_pols(rpos, position, momenta):
@@ -170,6 +176,59 @@ def barrel_get_pols(rpos, position, momenta):
     return a,b,c
 
 @njit
+def conic_get_pols(zcenter, tan_theta, position, momenta):
+    delta_z = zcenter - position[:,2]
+    a = -1 * momenta[:,2]**2 * tan_theta**2 + momenta[:,1]**2 + momenta[:,0]**2
+    b = 2*position[:,0] * momenta[:, 0] + 2*position[:,1]*momenta[:,1] + tan_theta**2 * 2*zcenter*momenta[:,2] - tan_theta**2 *2*position[:,2]*momenta[:,2]
+    c = -1*tan_theta**2 * delta_z**2 + position[:,0]**2 + position[:,1]**2
+    return a,b,c
+
+@njit
+def get_sols(a,b,c,zbeg, zend, position, momenta, mask):
+    indices = np.where(mask)[0]
+    #input position and momenta already sliced to indices
+    #need to get roots in efficient way
+    disc = b**2 - 4*a*c
+    roots = np.empty((indices.size, 2))
+    
+    mask_1 = (disc > 0)
+    mask_2 = (disc == 0)
+    mask_3 = (disc < 0)
+    
+    div = 2*a
+    r = -1*b/div
+    
+    r2 = np.sqrt(disc[mask_1])/div[mask_1]
+    roots[mask_1,0] = r[mask_1] + r2
+    roots[mask_1,1] = r[mask_1] - r2
+    
+    roots[mask_2,0] = r[mask_2]
+    roots[mask_2,1] = r[mask_2]
+    
+    roots[mask_3, :] = -1
+    
+    ip_1 = position[:,2] + roots[:,0]*momenta[:,2] # only z
+    ip_2 = position[:,2] + roots[:,1]*momenta[:,2] # only z
+
+    new_mask_1 = (ip_1 > zbeg) & (ip_1 < zend) & (np.round(roots[:,0],decimals =12) > 0)
+    new_mask_2 = (ip_2 > zbeg) & (ip_2 < zend) & (np.round(roots[:,1], decimals = 12) > 0)
+    t = roots.copy() #need t to get the correct root
+    any = new_mask_1 | new_mask_2
+
+    doubles = new_mask_1 & new_mask_2
+    
+    t[new_mask_2,0] = roots[new_mask_2,1]
+
+    if np.any(doubles):
+        t[doubles,0] = np.min(roots[doubles])
+            
+    ip = position[any] + t[any,0][:, np.newaxis]*momenta[any]
+                    
+    kept_indices = indices[np.where(any)[0]] # indexing the indices to get the correct particle numbers (ids)
+    
+    return kept_indices, ip
+
+'''@njit
 def barrel_check_i(zbeg, zend, position,momenta, indices, roots):
 
     ip_1 = position[indices,2] + roots[:,0]*momenta[indices,2] # only z
@@ -191,7 +250,7 @@ def barrel_check_i(zbeg, zend, position,momenta, indices, roots):
                     
     kept_indices = indices[np.where(any)[0]] # indexing the indices to get the correct particle numbers (ids)
             
-    return kept_indices, ip
+    return kept_indices, ip'''
 
 
 class cc:

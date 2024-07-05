@@ -33,8 +33,8 @@ def get_cs(E, part):
         return sigmanumubar(E)
 
 #@profile
-def get_quantities(param):
-    dt = list(data.get_particles(param))
+def get_quantities(param, N_evals):
+    dt = list(data.get_particles(param, N_evals))
     sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
 
     #gc.collect()

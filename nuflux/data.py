@@ -118,7 +118,7 @@ def show_events(RA = 1e6, DH = 1e3,DD = [3e2, 0], p_min = 0, p_max = 3e3, p0 = 1
 
 
 #@profile
-def get_particles(parameters="mutristan_small"):
+def get_particles(parameters="mutristan_small", N_evals = 1e5):
 
     param_set = useful_data.parameters[parameters]
     mdb = fluxMC.MuonDecay(N_mu =param_set['Nmu'] )
@@ -132,8 +132,8 @@ def get_particles(parameters="mutristan_small"):
                             Rpm=0.5, #Fraction of total muons that are plus (or minus?)
                             NINT=10, #for MC integration
                             NINT_warmup=10,
-                            NEVAL=1e6,
-                            NEVAL_warmup=1e5
+                            NEVAL=N_evals,
+                            NEVAL_warmup=N_evals/10
                             )
 
     mdb.propagate_to_detector(
