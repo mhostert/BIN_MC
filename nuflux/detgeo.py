@@ -74,24 +74,23 @@ class SimulateDetector():
 
         delta_z = self.zbeginning - self.dec_pos[:,2]
         to = delta_z / self.momenta[:,2]
-        self.t = to[:, np.newaxis]
-        ip = self.dec_pos + self.t * self.momenta #intersection points
-        self.r_values = np.sqrt(ip[:,0]**2+ip[:,1]**2)
+        ip = self.dec_pos + to[:, np.newaxis] * self.momenta #intersection points
+        r_values = np.sqrt(ip[:,0]**2+ip[:,1]**2)
         
         cond_1 = ~(((self.intersection_points[:,0,2] < self.zending) & (self.intersection_points[:,0,2] > self.zbeginning) & (self.intersection_points[:,0,1] > -1 * self.rmax) & (self.intersection_points[:,0,1] < self.rmax)))
-        cond_2 = ((self.r_values > self.rmax) | (to < 0))
-        self.mask_not_accepted = cond_2 & cond_1
+        cond_2 = ((r_values > self.rmax) | (to < 0))
+        mask_not_accepted = cond_2 & cond_1
         
-        not_accepted_indices = np.where(self.mask_not_accepted)[0] #indices of this new array 
+        not_accepted_indices = np.where(mask_not_accepted)[0] #indices of this new array 
         self.location[not_accepted_indices, 1] = 0
         self.intersection_points[not_accepted_indices, 1, :] = self.intersection_points[not_accepted_indices, 0, :]
         self.time[1] = time.time()
 
         #resolved! efficient now
-        self.mask_accepted = (~self.mask_not_accepted) & (to > 0)
+        mask_accepted = (~mask_not_accepted) & (to > 0)
         for obj in self.initials:
-            self.mask_accepted = self.mask_accepted & (self.location[:,1]==-1)
-            new_indices = obj.check_in(self.r_values, self.mask_accepted) #gives indices (numbers) of those that go in one of the initials
+            mask_accepted = mask_accepted & (self.location[:,1]==-1)
+            new_indices = obj.check_in(r_values, mask_accepted) #gives indices (numbers) of those that go in one of the initials
 
             self.location[new_indices, 1] = obj.id
             self.intersection_points[new_indices, 1, :] = ip[new_indices,:]
@@ -177,14 +176,14 @@ class SimulateDetector():
 
         for i in range(self.iterations - 1):
             self.distances[:,i] = D3distance(self.intersection_points[:,i,:],self.intersection_points[:,i+1,:]) #these input arrays will be two dimensional, i.e., (sample_size, 3); distances will be i.e., (sample_size, 14)
-        self.part_line_integrals = self.distances * self.densities # huge array of line_ints at each component for each particle
-        self.line_integrals = np.sum(self.part_line_integrals, axis = 1)
+        self.part_line_integrals = self.distances * self.densities # huge array of line_ints at 
+        line_integrals = np.sum(self.part_line_integrals, axis = 1)
         self.cs = get_cs(self.E, self.particle)
-        self.probs = 1 - np.exp(-1*self.cs * self.line_integrals)
+        probs = 1 - np.exp(-1*self.cs * line_integrals)
 
-        self.factors = np.full((self.sample_size,1), self.Nmu) * self.w
+        factors = np.full((self.sample_size,1), self.Nmu) * self.w
 
-        self.counts = self.factors * self.probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
+        self.counts = factors * probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
         self.total_count = np.sum(self.counts)
         self.time[4] = time.time()
     
@@ -236,7 +235,6 @@ class SimulateDetector():
             self.densities[accepted_ix, count-1] = obj.density
         #print(time.time() - t0, obj.id)
     
-    #@profile
     def run(self):
         if (self.particle == "nue") | (self.particle == "numu"):
             self.time[0] = time.time()
@@ -311,8 +309,31 @@ class SimulateDetector():
         _,_ = self.tests[1].check_intersection(pos3, pos3, other)
         _,_ = self.tests[2].check_intersection(pos3, pos3, other)
         return self
-    
+    @profile
     def clear_mem(self):
+        self.cc = None
+        self.dec_pos = None
+        self.momenta = None
+        self.objects = None
+        self.object_ids = None
+        self.initials = None
+        self.decayer = None
+        self.outside = None
+        self.tests = None
+        
+        # maybe?
+        self.intersection_points = self.intersection_points[self.mask,:,:]
+        self.location = None
+        self.events_position = self.events_position[self.mask, :, :]
+        self.part_face_counts = self.part_face_counts[self.mask,:]
+        self.E = None
+        self.distances = None
+        self.cs = None
+        self.counts = None
+        self.part_line_integrals = None
+        self.densities = None
+        
+        
         pass
 
 @jit(nopython = False, forceobj=True)
@@ -441,4 +462,7 @@ def plot_sim(geom):
 
     else:
         print("this geometry has not been implemented yet!")
-    
+
+@profile
+def che():
+    print('mem')
