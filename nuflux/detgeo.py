@@ -64,7 +64,7 @@ class SimulateDetector():
         self.cc = copy.deepcopy(coord_object)
         self.cc.straight_segment_at_detector(self.f, self.rmax)
         
-        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized
+        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized (does not include all decays!!!)
         self.Nmu = self.cc.Nmu
         self.sample_size = self.cc.sample_size
         self.particle = particle
@@ -107,7 +107,7 @@ class SimulateDetector():
 
             self.location[new_indices, 1] = obj.id
             self.intersection_points[new_indices, 1, :] = ip[new_indices,:]
-        t4 = time.time()
+        
         
         del self.initials
         
@@ -118,20 +118,7 @@ class SimulateDetector():
 
         a,b,c = helpers.barrel_get_pols(self.rbp, self.intersection_points[mask_decay,0,:], self.momenta[mask_decay])
 
-        coeffs = np.vstack((a,b,c)).T #( indices size), 3)
-        roots=np.empty((a.shape[0], 2))
-        for i,poly in enumerate(coeffs):
-            root = np.roots(poly)
-            root1 = np.zeros(2)
-            if isinstance(root[0],complex):
-                 root1[0] = -1
-            else:
-                root1[0] = root[0]  
-            if isinstance(root[1], complex):
-                root1[1] = -1
-            else:
-                root1[1] = root[1]    
-            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
+        roots = helpers.get_roots(a,b,c)
 
         new_mask_1 = (np.round(roots[:,0],decimals =12) > 0)
         new_mask_2 = (np.round(roots[:,1], decimals = 12) > 0)
@@ -143,7 +130,9 @@ class SimulateDetector():
 
         if np.any(doubles):
             t[doubles,0] = np.min(roots[doubles])
-            
+        
+        
+        
         ip2 = self.intersection_points[mask_decay,0,:] + t[:,0][:, np.newaxis]*self.momenta[mask_decay]
         for neighb in self.decayer[0].next_ids:
             neighbor = self.objects[neighb]
@@ -270,7 +259,7 @@ class SimulateDetector():
             self.location[accepted_ix, count] = neigh.id
             self.densities[accepted_ix, count-1] = obj.density
 
-    @profile
+    #@profile
     def run(self):
         if (self.particle == "nue") | (self.particle == "numu"):
             self.time[0] = time.time()
@@ -278,7 +267,7 @@ class SimulateDetector():
             self.get_probs()
             self.get_event_positions()
             
-            print(f'sim time: {(self.time[6] - self.time[0]):.3g}')
+            print(f'sim time: {(self.time[6] - self.time[0]):.3g} ({(self.time[1] - self.time[0]):.3g} init; {(self.time[2] - self.time[1]):.3g} init obj; {(self.time[3] - self.time[2]):.3g} obj; {(self.time[4] - self.time[3]):.3g} get_probs; {(self.time[5] - self.time[4]):.3g} uniform rvs; {(self.time[6] - self.time[5]):.3g} event pos)')
             
             
             if self.particle =='numu':
