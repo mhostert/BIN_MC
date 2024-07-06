@@ -142,12 +142,12 @@ def get_particles(parameters="mutristan_small", N_evals = 1e5):
                             get_int=False) 
     
     
-    R = np.copy(mdb.Racc)
+    R = mdb.Racc
     w = np.copy(mdb.w)
-    sample_size = np.copy(mdb.sample_size)
+    sample_size = mdb.sample_size
     Enumu = np.copy(mdb.Enumu)
     Enue = np.copy(mdb.Enue)
-    N_mu=  np.copy(mdb.N_mu)
+    N_mu=  mdb.N_mu
     pnumu_ar = np.copy(mdb.pnumu)
     pnue_ar = np.copy(mdb.pnue)
     pos_at = np.copy(mdb.pos_at)

@@ -261,7 +261,7 @@ class cc:
         nw = np.copy(w)
         del w
         self.weights = nw / np.sum(nw)
-        self.sample_size = np.copy(sample_size)
+        self.sample_size = sample_size
         self.Nmu = N_mu
 
         old_m = pnumu_ar[:,1:4] # after initial rotation within program, no need to translate
