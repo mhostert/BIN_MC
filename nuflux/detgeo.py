@@ -32,27 +32,26 @@ def get_cs(E, part):
     elif part == "numu":
         return sigmanumubar(E)
 
-#@profile
-def get_quantities(param):
-    dt = list(data.get_particles(param))
+##@profile
+def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, dt = None):
+    
+    if not alr_loaded:
+        dt = list(data.get_particles(param, N_evals))
+    
     sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
 
-    #gc.collect()
-    #print(sys.getrefcount(dt))
-    #print(gc.get_referrers(dt))
-    del dt
     return sim
+
 
 class SimulateDetector():
 
-    #@profile
+    ##@profile
     def __init__(self, coord_object, f, geom, particle):
-        self.time = np.zeros(7)
+        self.time = np.zeros(6)
         self.f = f
         self.Geometry = geom
         geom = importlib.import_module(self.Geometry)
         self.objects = geom.OBJECTS
-        self.object_ids = np.array([obj.id for obj in self.objects])
         self.zbeginning = geom.zbeginning
         self.rmax = geom.rmax
         self.rbp = geom.rbp
@@ -61,16 +60,15 @@ class SimulateDetector():
         self.decayer = geom.DECAYER #is the minus_one
         self.outside = geom.OUTSIDE # parent class of outside-going faces
         self.face_dict = geom.facedict
-        self.tests = geom.TESTS
         self.outside_ids = np.array([obj.id for obj in self.outside])
         self.iterations = geom.iterations #size of the interactions_points array, one more than distances and densities
-        geom = None
+        del geom 
         
         self.cc = copy.deepcopy(coord_object)
+        #coord_object.clear_mem()
         self.cc.straight_segment_at_detector(self.f, self.rmax)
         
-        self.dec_pos = self.cc.p
-        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized
+        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized (does not include all decays!!!)
         self.Nmu = self.cc.Nmu
         self.sample_size = self.cc.sample_size
         self.particle = particle
@@ -91,9 +89,9 @@ class SimulateDetector():
         #first interaction points
         count = 1
 
-        delta_z = self.zbeginning - self.dec_pos[:,2]
+        delta_z = self.zbeginning - self.intersection_points[:,0,2]
         to = delta_z / self.momenta[:,2]
-        ip = self.dec_pos + to[:, np.newaxis] * self.momenta #intersection points
+        ip = self.intersection_points[:,0,:] + to[:, np.newaxis] * self.momenta #intersection points
         r_values = np.sqrt(ip[:,0]**2+ip[:,1]**2)
         
         cond_1 = ~(((self.intersection_points[:,0,2] < self.zending) & (self.intersection_points[:,0,2] > self.zbeginning) & (self.intersection_points[:,0,1] > -1 * self.rmax) & (self.intersection_points[:,0,1] < self.rmax)))
@@ -113,30 +111,18 @@ class SimulateDetector():
 
             self.location[new_indices, 1] = obj.id
             self.intersection_points[new_indices, 1, :] = ip[new_indices,:]
-        t4 = time.time()
         
+        
+        del self.initials
         
         #at this point, there should be -1s (decaying in detector), 0s (did not reach detector), and ids of initials
-        mask_decay = (self.location[:,1] == -1) & ~(np.sqrt(self.dec_pos[:,0]**2 + self.dec_pos[:,1]**2) > self.rbp)
+        mask_decay = (self.location[:,1] == -1) & ~(np.sqrt(self.intersection_points[:,0,0]**2 + self.intersection_points[:,0,1]**2) > self.rbp)
         
         #this one takes a bunch of time! will replace by common cylinder solving. Need to get new ips; new face id; own density
 
-        a,b,c = helpers.barrel_get_pols(self.rbp, self.dec_pos[mask_decay], self.momenta[mask_decay])
+        a,b,c = helpers.barrel_get_pols(self.rbp, self.intersection_points[mask_decay,0,:], self.momenta[mask_decay])
 
-        coeffs = np.vstack((a,b,c)).T #( indices size), 3)
-        roots=np.empty((a.shape[0], 2))
-        for i,poly in enumerate(coeffs):
-            root = np.roots(poly)
-            root1 = np.zeros(2)
-            if isinstance(root[0],complex):
-                 root1[0] = -1
-            else:
-                root1[0] = root[0]  
-            if isinstance(root[1], complex):
-                root1[1] = -1
-            else:
-                root1[1] = root[1]    
-            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
+        roots = helpers.get_roots(a,b,c)
 
         new_mask_1 = (np.round(roots[:,0],decimals =12) > 0)
         new_mask_2 = (np.round(roots[:,1], decimals = 12) > 0)
@@ -148,8 +134,10 @@ class SimulateDetector():
 
         if np.any(doubles):
             t[doubles,0] = np.min(roots[doubles])
-            
-        ip2 = self.dec_pos[mask_decay] + t[:,0][:, np.newaxis]*self.momenta[mask_decay]
+        
+        
+        
+        ip2 = self.intersection_points[mask_decay,0,:] + t[:,0][:, np.newaxis]*self.momenta[mask_decay]
         for neighb in self.decayer[0].next_ids:
             neighbor = self.objects[neighb]
             loc_mask  = (self.location[mask_decay, 1]==-1)
@@ -165,6 +153,8 @@ class SimulateDetector():
         weird_decay_mask = (self.location[:,1] == -1)
         self.update_intersections(self.decayer[1], count, weird_decay_mask)
         self.location[weird_decay_mask,0] = -2
+        
+        del self.decayer
         
         #there should be no more -1s, just 0 - x
         count = 2
@@ -189,22 +179,29 @@ class SimulateDetector():
             count+=1
 
         self.time[3] = time.time()
+        del self.objects
+        del self.outside
+        del self.outside_ids
     
     #@profile
     def get_probs(self):
 
         for i in range(self.iterations - 1):
             self.distances[:,i] = D3distance(self.intersection_points[:,i,:],self.intersection_points[:,i+1,:]) #these input arrays will be two dimensional, i.e., (sample_size, 3); distances will be i.e., (sample_size, 14)
+        
+        self.dec_pos = self.intersection_points[:,0,:]
+        del self.intersection_points
         self.part_line_integrals = self.distances * self.densities # huge array of line_ints at 
         line_integrals = np.sum(self.part_line_integrals, axis = 1)
         self.cs = get_cs(self.E, self.particle)
         probs = 1 - np.exp(-1*self.cs * line_integrals)
 
         factors = np.full((self.sample_size,1), self.Nmu) * self.w
-
+        del self.w
         self.counts = factors * probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
         self.total_count = np.sum(self.counts)
         self.time[4] = time.time()
+        del self.densities 
     
     #@profile
     def get_event_positions(self):
@@ -212,21 +209,34 @@ class SimulateDetector():
 
         self.mask = (self.counts>0)
         self.mask = self.mask[:, 0]
-        scales = self.distances[self.mask]
-        temporary = np.empty((1,np.sum(self.mask), self.iterations - 1))
-        temporary[:,:, :] = [uniform.rvs(loc = 0, scale = scales)]
+        
+        self.momenta = self.momenta[self.mask]
+        self.dec_pos = self.dec_pos[self.mask]
+        self.distances = self.distances[self.mask]
+        self.part_line_integrals = self.part_line_integrals[self.mask]
+        self.counts = self.counts[self.mask]
+        self.location = self.location[self.mask]
+        self.E = self.E[self.mask]
+        self.cs = self.cs[self.mask]
+        
+        temporary = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
+        temporary[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]
+        
+        
+        
+        
+        self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
         self.time[5] = time.time()
-        self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.mask, self.distances, self.sample_size, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
-        self.time[6] = time.time()
+        
         return
 
-    #@profile
+    ##@profile
     def initialize_quantities(self):
 
         self.intersection_points = np.full((self.sample_size, self.iterations, 3), 1e4) #1e4 is arbitrary
         self.densities = np.zeros((self.sample_size, self.iterations - 1))
         self.location = np.full((self.sample_size, self.iterations), -1) #starting at initials
-        self.intersection_points[:,0,:] = self.dec_pos
+        self.intersection_points[:,0,:] = self.cc.p
         self.distances = np.zeros((self.sample_size, self.iterations - 1))
 
 
@@ -242,7 +252,7 @@ class SimulateDetector():
 
     
     def update_intersections(self, obj, count, mask):
-        #t0 = time.time()
+ 
         for neighbor in obj.next_ids:
             neigh = self.objects[neighbor]
             new_indices, ips = neigh.check_intersection(self.intersection_points[:,count - 1,:], self.momenta, mask)
@@ -252,23 +262,17 @@ class SimulateDetector():
             self.intersection_points[accepted_ix, count, :] = ips[mask_1]
             self.location[accepted_ix, count] = neigh.id
             self.densities[accepted_ix, count-1] = obj.density
-        #print(time.time() - t0, obj.id)
-    
+
+    #@profile
     def run(self):
         if (self.particle == "nue") | (self.particle == "numu"):
             self.time[0] = time.time()
             self.find_info()
             self.get_probs()
             self.get_event_positions()
-            print("{:.3g} {} events".format(self.total_count, self.particle))
+            #print(f'sim time: {(self.time[6] - self.time[0]):.3g} ({(self.time[1] - self.time[0]):.3g} init; {(self.time[2] - self.time[1]):.3g} init obj; {(self.time[3] - self.time[2]):.3g} obj; {(self.time[4] - self.time[3]):.3g} get_probs; {(self.time[5] - self.time[4]):.3g} uniform rvs; {(self.time[6] - self.time[5]):.3g} event pos)')
             
-            '''print('time: {:.3g} for initialization;\n{:.3g} for initial objects;\n{:.3g} for other objects;\n{:.3g} for probs;\n{:.3g} for MC event positions;\n{:.3g} for event positions;\n{:.3g} for total time.'.format(
-                self.time[1] - self.time[0],self.time[2] - self.time[1], 
-                self.time[3] - self.time[2], self.time[4] - self.time[3], 
-                self.time[5] - self.time[4],self.time[6] - self.time[5],
-                self.time[6] - self.time[0]))'''
             
-            print(f'sim time: {(self.time[6] - self.time[0]):.3g}')
             if self.particle =='numu':
                 return self, None
             else:
@@ -278,20 +282,23 @@ class SimulateDetector():
             self.particle="numu"
             self.update_params()
             self.run()
-            _, sim2 = SimulateDetector(self.cc, 0, self.Geometry, 'nue').run()
+            _, sim2 = SimulateDetector(self.cc, -1, self.Geometry, 'nue').run()
             
             
             
             self.get_face_counts('both', sim2)
-            #print("{:.3g} total events".format(self.total_count + sim2.total_count))
+            self.get_timetable(sim2)
+            
+            
             self.clear_mem()
             sim2.clear_mem()
+            
             return self, sim2
         
         else:
             raise ValueError("No particle of that name incldued in the detector!")
     
-    #@profile
+    ##@profile
     def get_face_counts(self, arg, sim2):
 
         # Example usage within your class
@@ -313,33 +320,57 @@ class SimulateDetector():
             table.add_row([name] + formatted_row)
 
         print(table)
+        
+    def get_timetable(self, sim2):
+        names = ['ν_μ time', 'ν_e time']
+        data = [[self.time[i+1] - self.time[i], sim2.time[i+1] - sim2.time[i], self.time[i+1] - self.time[i] + sim2.time[i+1] - sim2.time[i]] for i in range(0, len(self.time)-1)]
+        data.append([self.time[-1] - self.time[0], sim2.time[-1] - sim2.time[0], sim2.time[-1] - self.time[0]])
+
+        table = PrettyTable()
+        names = ['init','init obj','other obj','probs','events', 'totals']
+        table.field_names = ['Simulation Time','time ν_μ', 'time ν_e', 'TOTAL']
+        for name, row in zip(names, data):
+            formatted_row = [f'{x:.3e}' for i,x in enumerate(row)]
+            table.add_row([name] + formatted_row)
+        
+        print(table)
+            
+    def plot(self, sim2, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12)):
+        plt.figure(figsize = fs)
+        arr = self.events_position
+        arr2 = sim2.events_position
+        bs = np.linspace(-564, 564, nbins)
+        bs2 = np.linspace(-645, 645, nbins)
+        x = np.concatenate((arr[:,:,0].flatten(), arr2[:, :,0].flatten(), arr[:,:,0].flatten(), arr2[:, :,0].flatten()))
+        y = np.concatenate((arr[:,:,1].flatten(), arr2[:, :,1].flatten(), arr[:,:,1].flatten(), arr2[:, :,1].flatten()))
+        z = np.concatenate((arr[:, :,2].flatten(), arr2[:, :,2].flatten(), -1*arr[:, :,2].flatten(), -1 * arr2[:, :,2].flatten()))
+        w = np.concatenate((self.part_face_counts.flatten()/2,sim2.part_face_counts.flatten()/2, self.part_face_counts.flatten()/2, sim2.part_face_counts.flatten()/2))
+        
+        if orientation == 'z-y':
+            plt.hist2d(z, y, alpha = 1, zorder = 10, bins = (bs, bs2), weights = w, cmin = cmin)
+        
+        elif orientation == 'z-x':
+            plt.hist2d(z, x, alpha = 1, zorder = 10, bins = (bs, bs2), weights = w, cmin = cmin)
+            
+        else:
+            raise ValueError('Only orientations are z-y and z-x!')
+            
+        plot_sim(self.Geometry)
+        
+        if savefig:
+            plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+            
+        if give_data:
+            return x,y,z,w
     
-    #@profile
+    ##@profile
     def clear_mem(self):
-        self.cc = None
-        self.dec_pos = None
-        self.momenta = None
-        self.objects = None
-        self.object_ids = None
-        self.initials = None
-        self.decayer = None
-        self.outside = None
-        self.tests = None
-        
-        # maybe?
-        self.intersection_points = self.intersection_points[self.mask,:,:]
-        self.location = None
-        self.events_position = self.events_position[self.mask, :, :]
-        self.part_face_counts = self.part_face_counts[self.mask,:]
-        self.E = self.E[self.mask]
-        self.distances = None
-        self.cs = self.cs[self.mask]
-        self.counts = None
-        self.part_line_integrals = None
-        self.densities = None
-        
-        
-        pass
+        deletables=['cc','momenta','location','distances','counts','part_line_integrals','time','f','zbeginning','rmax','rbp','zending','iterations','Nmu','sample_size','particle', 'face_dict', 'facecounts','facecounts2']
+        for att in deletables:
+            if hasattr(self, att):
+                delattr(self, att)
+               
+
 
 @jit(nopython = False, forceobj=True)
 def calculate_facecounts(face_dict, location, part_face_counts):
@@ -353,43 +384,67 @@ def calculate_facecounts(face_dict, location, part_face_counts):
     return facecounts
 
 #can't njit this since a bunch of np operations along axes
-def get_probs_njit(dec_pos, momenta, mask, distances, sample_size, iterations,counts, cs, part_line_integrals, temporary):
+#@profile
+def get_probs_njit(dec_pos, momenta, distances, iterations,counts, cs, part_line_integrals, temporary):
     #initialize
-    pweights = np.zeros(distances.shape) #these are probabilities, NOT WEIGHTS
-    temp2 = np.ones((sample_size, iterations - 1)) #probs of non-interaction in each segment
+    #pweights these are probabilities, NOT WEIGHTS
+    
+    temporary = temporary.reshape((temporary.shape[1], temporary.shape[2]))
+    temp2 = np.ones((distances.shape[0], iterations - 1)) #probs of non-interaction in each segment
     
 
-    temp2[mask, :] = np.exp(-1 *cs[mask, np.newaxis] * part_line_integrals[mask])
+    temp2 = np.exp(-1 *cs[:, np.newaxis] * part_line_integrals)
     mi = np.prod(temp2, axis = 1)
     
     #to njit
-    pweights[mask,:] = get_events_njit1(temp2[:, :], mi[:, np.newaxis], mask)
-    max_index = np.argmax(pweights[mask], axis=1)
-    pweights[mask, :] = pweights[mask] / pweights[mask, max_index][:, np.newaxis]
+    pweights = get_events_njit1(temp2, mi[:, np.newaxis])
+    max_index = np.argmax(pweights[:], axis=1)
+ 
+    mask = np.ones_like(pweights, dtype=bool)[:,0]
+    # Fetch maximum values from pweights using max_index
+    max_p = pweights[mask, max_index]
+
+    # Ensure max_p is reshaped correctly for broadcasting
+    max_p = max_p[:, np.newaxis]  # Convert to column vector
+
+    pweights = pweights / max_p
     mid  = np.sum(pweights, axis = 1)
+
+    
+
     cumulative_distances = np.cumsum(distances, axis = 1)
     normed_m = momenta / np.linalg.norm(momenta, axis = 1)[:, np.newaxis]
+    dec_pos = dec_pos[:,np.newaxis,:]
+    normed_m = normed_m[:,np.newaxis, :]
 
-    #to njit
-    return get_events_njit2(distances.shape, pweights, mid[:, np.newaxis], mask, counts, dec_pos[:,np.newaxis,:], normed_m[:, np.newaxis,:], cumulative_distances, temporary)
+    
+    info =  get_events_njit2(distances.shape, pweights, mid[:,np.newaxis], counts, dec_pos, normed_m, cumulative_distances, temporary)
+
+    return info[0], info[1]
+
 
 @njit
-def get_events_njit1(temp2, mi, mask):
+def get_events_njit1(temp2, mi):
     
-    res = (1 - temp2[mask]) * mi[mask] / temp2[mask]
-
+    res = (1 - temp2) * mi / temp2
+    
     return res
 
+
 @njit
-def get_events_njit2(shape, pweights, mid, mask, counts, dec_pos, normed_m, cumulative_distances, temporary):
+def get_events_njit2(shape, pweights, mid, counts, dec_pos, normed_m, cumulative_distances, temporary):
     # shape is (:, 25); pweights is (:, 25); mid is (:,1); mask is (:,); counts is (:,1); dec_pos is (:, 1, 3); normed_m is [:, 1, 3]; cumulative_distances is [:,25]; temporary is [:, 25]
-    pweights[mask,:] = pweights[mask] / mid[mask] #good multinomial probs
-    int_parameters = np.zeros(shape) #t values starting at the last interaction point for each simulated interaction
-    int_parameters[mask, :] = temporary
-    int_parameters[:,1:] += cumulative_distances[:,:-1]
+    
+    pweights = pweights / mid #good multinomial probs
+
+    temporary[:,1:] += cumulative_distances[:,:-1]
+    
     part_face_counts = counts * pweights # these are the face counts (expected)
-    events_position = dec_pos + int_parameters[:,:,np.newaxis] * normed_m
+    
+    events_position = dec_pos + temporary[:,:,np.newaxis] * normed_m
+    
     return events_position, part_face_counts
+
 
 
 def plot_sim(geom):

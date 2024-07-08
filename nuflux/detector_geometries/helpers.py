@@ -39,7 +39,7 @@ class barrel:
         indices = np.where(mask)[0] #array of indices of particles that we will consider
         a,b,c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
 
-        coeffs = np.vstack((a,b,c)).T #( indices size), 3)
+        '''coeffs = np.vstack((a,b,c)).T #( indices size), 3)
         roots=np.empty((a.shape[0], 2))
         for i,poly in enumerate(coeffs):
             root = np.roots(poly)
@@ -52,9 +52,11 @@ class barrel:
                 root1[1] = -1
             else:
                 root1[1] = root[1]    
-            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
+            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two'''
+        
+        info = get_sols(a,b,c, self.zbeg, self.zend, position[mask], momenta[mask], mask)
             
-        info =  barrel_check_i(self.zbeg, self.zend, position, momenta, indices, roots)
+        #info =  barrel_check_i(self.zbeg, self.zend, position, momenta, indices, roots)
         return info[0], info[1]
                     
 
@@ -76,7 +78,10 @@ class conic:
 
     def check_intersection(self, position,momenta, mask):
         
-        info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
+        a,b,c = conic_get_pols(self.zcenter, self.tan_theta, position[mask], momenta[mask])
+        info = get_sols(a,b,c, self.zbeg, self.zend, position[mask], momenta[mask], mask)
+        
+        #info =  conic_check_i(self.tan_theta, self.zcenter, self.zbeg, self.zend, position, momenta, mask)
         return info[0], info[1]
         
 
@@ -122,46 +127,6 @@ def cap_check_i(zpos, rbeg, rend, position, momenta, mask):
     return kept_indices, ip[mask_new]
 
 
-
-@njit
-def conic_check_i(tan_theta, zcenter, zbeg, zend, position, momenta, mask):
-    indices = (np.where(mask)[0]) #indices of particles that we will consider
-    delta_z = zcenter - position[indices,2]
-    a = -1 * momenta[indices,2]**2 * tan_theta**2 + momenta[indices,1]**2 + momenta[indices,0]**2
-    b = 2*position[indices,0] * momenta[indices, 0] + 2*position[indices,1]*momenta[indices,1] + tan_theta**2 * 2*zcenter*momenta[indices,2] - tan_theta**2 * 2*position[indices,2]*momenta[indices,2]
-    c = -1*tan_theta**2 * delta_z**2 + position[indices,0]**2 + position[indices,1]**2
-        
-    coeffs = np.vstack((a,b,c)).T # (sample_size, 3)
-    
-    roots=np.empty((coeffs.shape[0], 2))
-        
-    for i,poly in enumerate(coeffs):
-        root = np.roots(poly)
-        if isinstance(root[0],complex):
-            root[0] = -1
-        if isinstance(root[1], complex):
-            root[1] = -1
-        roots[i,:] = root# (indices size, 2) THIS MIGHT NOT ALWAYS have size two
-    ip_1 = position[indices] + roots[:,0][:, np.newaxis] * momenta[indices]
-    ip_2 = position[indices] + roots[:,1][:, np.newaxis] * momenta[indices]
-    #conditions: assert r between rsmall and (zcenter - zbeg)*tan_theta, z between zend and zbeg (first), root is positive
-    new_mask_1 = (ip_1[:,2] > zbeg) & (ip_1[:,2] < zend) & (np.round(roots[:,0], decimals = 12) > 0)
-    new_mask_2 = (ip_2[:,2] > zbeg) & (ip_2[:,2] < zend) & (np.round(roots[:,1], decimals = 12) > 0)
-            
-    t = roots.copy() #need t to get the correct root
-    any = new_mask_1 | new_mask_2
-    doubles = new_mask_1 & new_mask_2
-            
-
-    t[new_mask_2,0] = roots[new_mask_2,1]
-    if np.any(doubles):
-        t[doubles,0] = np.min(roots[doubles])
-            
-    ip = position[indices][any] + t[:,0][any, np.newaxis] * momenta[indices][any]
-    kept_indices = indices[np.where(any)[0]] # indexing the indices to get the correct particle numbers (ids)
-        
-    return kept_indices, ip
-
 @njit
 def barrel_get_pols(rpos, position, momenta):
     a = (momenta[:,0])**2 + (momenta[:,1])**2
@@ -170,10 +135,44 @@ def barrel_get_pols(rpos, position, momenta):
     return a,b,c
 
 @njit
-def barrel_check_i(zbeg, zend, position,momenta, indices, roots):
+def conic_get_pols(zcenter, tan_theta, position, momenta):
+    delta_z = zcenter - position[:,2]
+    a = -1 * momenta[:,2]**2 * tan_theta**2 + momenta[:,1]**2 + momenta[:,0]**2
+    b = 2*position[:,0] * momenta[:, 0] + 2*position[:,1]*momenta[:,1] + tan_theta**2 * 2*zcenter*momenta[:,2] - tan_theta**2 *2*position[:,2]*momenta[:,2]
+    c = -1*tan_theta**2 * delta_z**2 + position[:,0]**2 + position[:,1]**2
+    return a,b,c
 
-    ip_1 = position[indices,2] + roots[:,0]*momenta[indices,2] # only z
-    ip_2 = position[indices,2] + roots[:,1]*momenta[indices,2] # only z
+@njit
+def get_roots(a,b,c):
+    disc = b**2 - 4*a*c
+    roots = np.empty((a.shape[0], 2))
+    
+    mask_1 = (disc > 0)
+    mask_2 = (disc == 0)
+    mask_3 = (disc < 0)
+    
+    div = 2*a
+    r = -1*b/div
+    
+    r2 = np.sqrt(disc[mask_1])/div[mask_1]
+    roots[mask_1,0] = r[mask_1] + r2
+    roots[mask_1,1] = r[mask_1] - r2
+    
+    roots[mask_2,0] = r[mask_2]
+    roots[mask_2,1] = r[mask_2]
+    
+    roots[mask_3, :] = -1
+    return roots
+
+@njit
+def get_sols(a,b,c,zbeg, zend, position, momenta, mask):
+    indices = np.where(mask)[0]
+    #input position and momenta already sliced to indices
+    #need to get roots in efficient way
+    roots = get_roots(a,b,c)
+    
+    ip_1 = position[:,2] + roots[:,0]*momenta[:,2] # only z
+    ip_2 = position[:,2] + roots[:,1]*momenta[:,2] # only z
 
     new_mask_1 = (ip_1 > zbeg) & (ip_1 < zend) & (np.round(roots[:,0],decimals =12) > 0)
     new_mask_2 = (ip_2 > zbeg) & (ip_2 < zend) & (np.round(roots[:,1], decimals = 12) > 0)
@@ -187,10 +186,10 @@ def barrel_check_i(zbeg, zend, position,momenta, indices, roots):
     if np.any(doubles):
         t[doubles,0] = np.min(roots[doubles])
             
-    ip = position[indices][any] + t[any,0][:, np.newaxis]*momenta[indices][any]
+    ip = position[any] + t[any,0][:, np.newaxis]*momenta[any]
                     
     kept_indices = indices[np.where(any)[0]] # indexing the indices to get the correct particle numbers (ids)
-            
+    
     return kept_indices, ip
 
 
@@ -202,7 +201,7 @@ class cc:
         nw = np.copy(w)
         del w
         self.weights = nw / np.sum(nw)
-        self.sample_size = np.copy(sample_size)
+        self.sample_size = sample_size
         self.Nmu = N_mu
 
         old_m = pnumu_ar[:,1:4] # after initial rotation within program, no need to translate
@@ -230,64 +229,82 @@ class cc:
         self.pnue[:,0] = np.copy(Enue)
         self.pnumu[:,1:] =mnumu
         self.pnue[:,1:] = mnue
-        
-        del Enumu
-        del Enue
-        del pnumu_ar
-        del pnue_ar
-        del pos_at
-        
 
     def straight_segment_at_detector(self, f, h):
         #ssl is straight segment length, ENTIRE, not half
-        if f==0:
-            return self
+        dphi = np.arcsin(self.p[:,2] / self.Racc)
         
-        self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
-        print(self.Lc)
-        L = (f * self.Lc)/2
-        d = np.sqrt(self.Racc**2 - L**2)
+        if f==0:
+            mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*self.Racc) | (dphi < -1*np.pi/8)
+            mask_acc = ~mask_not_accepted
+            
+        elif f==-1:
+            return
+        else:
+            self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
+            L = (f * self.Lc)/2
+            d = np.sqrt(self.Racc**2 - L**2)
 
-        #mask - change everything that is on the straight segment
+            #mask - change everything that is on the straight segment
+    
+            mask = (self.p[:, 2] > -1*L) & (self.p[:,2] < L) & (self.p[:,1] > - self.Racc)
 
-        mask = (self.p[:, 2] > -1*L) & (self.p[:,2] < L) & (self.p[:,1] > - self.Racc)
 
-
-        new_p = np.copy(self.p)
-        new_mnumu = np.copy(self.pnumu[:,1:])
-        new_mnue = np.copy(self.pnue[:,1:])
+            new_p = np.copy(self.p)
+            new_mnumu = np.copy(self.pnumu[:,1:])
+            new_mnue = np.copy(self.pnue[:,1:])
 
         #lower dimension quantities
-        dphi = np.arcsin(self.p[:,2] / self.Racc)
-        lengths = dphi * self.Racc
-        new_p[mask,2] = lengths[mask]
-        tantheta = L * np.sqrt(1 / (self.Racc**2 - L**2))
-    
-        new_p[mask,0] = self.p[mask, 0]
-        new_p[mask,1] = np.zeros((np.sum(mask), )) #approximation; these don't actually have y= 0, they are a little off the beam
+            lengths = dphi * self.Racc
+            new_p[mask,2] = lengths[mask]
+            tantheta = L * np.sqrt(1 / (self.Racc**2 - L**2))
+        
+            new_p[mask,0] = self.p[mask, 0]
+            new_p[mask,1] = np.zeros((np.sum(mask), )) #approximation; these don't actually have y= 0, they are a little off the beam
 
         #these are on lower dimension already
-        maskleft = (dphi  < 0) & (mask)
-        maskright = (dphi > 0) & (mask)
+            maskleft = (dphi  < 0) & (mask)
+            maskright = (dphi > 0) & (mask)
 
 
         
-        new_mnumu[maskleft, :] = Cfv.rotationx(self.pnumu[maskleft], -1*(dphi[maskleft]))[:,1:] #lower dimension
-        new_mnumu[maskright, :] = Cfv.rotationx(self.pnumu[maskright], (dphi[maskright]))[:,1:] #lower dimension
-        new_mnue[maskleft, :] = Cfv.rotationx(self.pnue[maskleft], -1 * (dphi[maskleft]))[:, 1:] #lower dimension
-        new_mnue[maskright, :] = Cfv.rotationx(self.pnue[maskright], (dphi[maskright]))[:, 1:] #lower dimension
+            new_mnumu[maskleft, :] = Cfv.rotationx(self.pnumu[maskleft], -1*(dphi[maskleft]))[:,1:] #lower dimension
+            new_mnumu[maskright, :] = Cfv.rotationx(self.pnumu[maskright], (dphi[maskright]))[:,1:] #lower dimension
+            new_mnue[maskleft, :] = Cfv.rotationx(self.pnue[maskleft], -1 * (dphi[maskleft]))[:, 1:] #lower dimension
+            new_mnue[maskright, :] = Cfv.rotationx(self.pnue[maskright], (dphi[maskright]))[:, 1:] #lower dimension
 
-        notmask = ~mask
-        new_p[notmask, 1] = self.p[notmask, 1] + self.Racc - L/tantheta
+            notmask = ~mask
+            new_p[notmask, 1] = self.p[notmask, 1] + self.Racc - L/tantheta
 
-        self.p = np.copy(new_p)
-        self.pnumu[:,1:] = np.copy(new_mnumu)
-        self.pnue[:,1:] = np.copy(new_mnue)
+            self.p = np.copy(new_p)
+            self.pnumu[:,1:] = np.copy(new_mnumu)
+            self.pnue[:,1:] = np.copy(new_mnue)
         
+            #to remove all decays that are too far ~15/16
+            co = f*self.Lc/self.Racc
+            if (co >= 1/2) and (f>=2): #arbitrary; should be very careful
+                if co>=2:
+                    raise ValueError('This length for straight segment is way too big. In fact, it is over twice the radius.')
+                mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta)| (dphi < -1*np.pi/4*co)
+            else:
+                mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta)| (dphi < -1*np.pi/8)
+            
+            mask_acc = ~mask_not_accepted
+        
+        self.p = self.p[mask_acc]
+        self.pnumu = self.pnumu[mask_acc]
+        self.pnue = self.pnue[mask_acc]
+        self.weights = self.weights[mask_acc]
+        self.sample_size = np.sum(mask_acc)
     
     def completely_linear(self):
         pass
 
+    def clear_mem(self):
+        deletables = ['Racc', 'p', 'pnumu', 'pnue', 'weights', 'sample_size', 'Nmu']
+        for att in deletables:
+            if hasattr(self, att):
+                delattr(self, att)
 
 class material:
     def __init__(self):

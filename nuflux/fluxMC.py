@@ -45,7 +45,8 @@ class MuonDecay(object):
         NINT_warmup=10,
         NEVAL=1e6,
         NEVAL_warmup=1e4,
-        Nmu = 2e19 #arbitrary
+        Nmu = 2e19,
+        luc = False #arbitrary
     ):
         """simulate_decays _summary_
 
@@ -76,6 +77,7 @@ class MuonDecay(object):
         
         Mparent = const.m_mu  # mass of the muon
         Mdaughter = const.m_e  # mass of the electron
+        self.luc = luc
         # muon helicities h #
         h_plus = MC.MC_events(
             model=model,
@@ -126,7 +128,19 @@ class MuonDecay(object):
         del h_plus
         del h_minus
         gc.collect()
-        return self.df_gen
+
+        self.pmu = df_gen["P_decay_mu"].to_numpy()  # all muon decaying momenta
+        self.pe = df_gen["P_decay_e"].to_numpy() # all emitted electrons momenta
+        self.pnue = df_gen["P_decay_nu_e"].to_numpy()  # all emitted electron neutrinos momenta
+        self.pnumu = df_gen["P_decay_nu_mu"].to_numpy()  # all emitted muonic neutrinos momenta
+        self.w = df_gen["w_flux"].to_numpy() # flux weights
+        #print(t4, 3)
+        if self.luc:
+            del df_gen
+            #print(t5, 4)
+        
+        else:
+            return df_gen
 
     #######################################
     # auxiliary func to decay particle along its trajectory
@@ -203,16 +217,6 @@ class MuonDecay(object):
         self.include_beamdiv = include_beamdiv
         self.truncate_exp = truncate_exp
 
-        self.pmu = np.copy(self.df_gen["P_decay_mu"].to_numpy())  # all muon decaying momenta
-        self.pe = np.copy(self.df_gen["P_decay_e"].to_numpy())  # all emitted electrons momenta
-        self.pnue = np.copy(self.df_gen[
-            "P_decay_nu_e"
-        ].to_numpy())  # all emitted electron neutrinos momenta
-        self.pnumu = np.copy(self.df_gen[
-            "P_decay_nu_mu"
-        ].to_numpy())  # all emitted muonic neutrinos momenta
-        self.w = np.copy(self.df_gen["w_flux"].to_numpy())  # flux of emitted W; momenta of W?
-        self.df_gen = None
         self.sample_size = np.size(self.pmu[:, 0])
 
         # Energies
