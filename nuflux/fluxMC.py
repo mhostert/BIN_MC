@@ -120,7 +120,7 @@ class MuonDecay(object):
         df_plus = h_plus.get_MC_events()  # gets all events for +1 helicity
         df_minus = h_minus.get_MC_events()  # same but for all -1 helicity
 
-        self.df_gen = pd.concat([df_plus, df_minus], axis=0).reset_index(
+        df_gen = pd.concat([df_plus, df_minus], axis=0).reset_index(
             drop=True
         )  # adds all helicities together
         del df_plus
