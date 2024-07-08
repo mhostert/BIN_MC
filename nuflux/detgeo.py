@@ -33,6 +33,7 @@ def get_cs(E, part):
         return sigmanumubar(E)
 
 ##@profile
+<<<<<<< HEAD
 def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, dt = None):
     
     if not alr_loaded:
@@ -40,6 +41,13 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
     
     sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
 
+=======
+def get_quantities(param, N_evals):
+    dt = list(data.get_particles(param, N_evals))
+    sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
+
+    del dt
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
     return sim
 
 
@@ -221,6 +229,7 @@ class SimulateDetector():
         
         temporary = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
         temporary[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]
+<<<<<<< HEAD
         
         
         
@@ -228,6 +237,15 @@ class SimulateDetector():
         self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
         self.time[5] = time.time()
         
+=======
+        self.time[5] = time.time()
+        
+        
+        
+        self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
+        self.time[6] = time.time()
+        
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
         return
 
     ##@profile
@@ -270,8 +288,14 @@ class SimulateDetector():
             self.find_info()
             self.get_probs()
             self.get_event_positions()
+<<<<<<< HEAD
             #print(f'sim time: {(self.time[6] - self.time[0]):.3g} ({(self.time[1] - self.time[0]):.3g} init; {(self.time[2] - self.time[1]):.3g} init obj; {(self.time[3] - self.time[2]):.3g} obj; {(self.time[4] - self.time[3]):.3g} get_probs; {(self.time[5] - self.time[4]):.3g} uniform rvs; {(self.time[6] - self.time[5]):.3g} event pos)')
             
+=======
+            
+            print(f'sim time: {(self.time[6] - self.time[0]):.3g} ({(self.time[1] - self.time[0]):.3g} init; {(self.time[2] - self.time[1]):.3g} init obj; {(self.time[3] - self.time[2]):.3g} obj; {(self.time[4] - self.time[3]):.3g} get_probs; {(self.time[5] - self.time[4]):.3g} uniform rvs; {(self.time[6] - self.time[5]):.3g} event pos)')
+            
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
             
             if self.particle =='numu':
                 return self, None
@@ -287,8 +311,11 @@ class SimulateDetector():
             
             
             self.get_face_counts('both', sim2)
+<<<<<<< HEAD
             self.get_timetable(sim2)
             
+=======
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
             
             self.clear_mem()
             sim2.clear_mem()
@@ -320,6 +347,7 @@ class SimulateDetector():
             table.add_row([name] + formatted_row)
 
         print(table)
+<<<<<<< HEAD
         
     def get_timetable(self, sim2):
         names = ['ν_μ time', 'ν_e time']
@@ -366,6 +394,12 @@ class SimulateDetector():
     ##@profile
     def clear_mem(self):
         deletables=['cc','momenta','location','distances','counts','part_line_integrals','time','f','zbeginning','rmax','rbp','zending','iterations','Nmu','sample_size','particle', 'face_dict', 'facecounts','facecounts2']
+=======
+    
+    ##@profile
+    def clear_mem(self):
+        deletables=['cc','momenta','location','distances','counts','part_line_integrals','time','f','Geometry','zbeginning','rmax','rbp','zending','iterations','Nmu','sample_size','particle', 'face_dict', 'facecounts','facecounts2']
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
         for att in deletables:
             if hasattr(self, att):
                 delattr(self, att)

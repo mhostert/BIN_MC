@@ -233,6 +233,7 @@ class cc:
     def straight_segment_at_detector(self, f, h):
         #ssl is straight segment length, ENTIRE, not half
         dphi = np.arcsin(self.p[:,2] / self.Racc)
+<<<<<<< HEAD
         
         if f==0:
             mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*self.Racc) | (dphi < -1*np.pi/8)
@@ -240,6 +241,13 @@ class cc:
             
         elif f==-1:
             return
+=======
+        
+        if f==0:
+            mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*self.Racc) | (dphi < -1*np.pi/8)
+            mask_acc = ~mask_not_accepted
+        
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
         else:
             self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
             L = (f * self.Lc)/2
@@ -281,6 +289,7 @@ class cc:
             self.pnue[:,1:] = np.copy(new_mnue)
         
             #to remove all decays that are too far ~15/16
+<<<<<<< HEAD
             co = f*self.Lc/self.Racc
             if (co >= 1/2) and (f>=2): #arbitrary; should be very careful
                 if co>=2:
@@ -289,6 +298,9 @@ class cc:
             else:
                 mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta)| (dphi < -1*np.pi/8)
             
+=======
+            mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta) | (dphi < -1*np.pi/8)
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
             mask_acc = ~mask_not_accepted
         
         self.p = self.p[mask_acc]

@@ -133,8 +133,12 @@ def get_particles(parameters="mutristan_small", N_evals = 1e5):
                             NINT=10, #for MC integration
                             NINT_warmup=10,
                             NEVAL=N_evals,
+<<<<<<< HEAD
                             NEVAL_warmup=N_evals/10,
                             luc = True
+=======
+                            NEVAL_warmup=N_evals/10
+>>>>>>> 502e55835199c64fe1919866c5dab403db34d53d
                             )
 
     mdb.propagate_to_detector(
