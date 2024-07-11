@@ -34,11 +34,13 @@ hcal_CLICdet = comp([[Fe, 20/26.5],[Al, 0.7/26.5],[Cu, 0.1 / 26.5],[PS, 3/26.5]]
 ecal_CLICdet = comp([[W, 1.9 / 5.05],[Cu, 2.3/5.05],[Si, 0.5/5.05]])
 
 #parameters
-mutristan_small = {"beam_p0": 1e3, "pmax": 3e3, "pmin":0,"Racc": 3e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 1.12e-4,"circular": True, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50}
-mutristan_large = {"beam_p0": 3e3, "pmax": 9e3, "pmin":0,"Racc": 9e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 7e-5,"circular": True, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50}
-mucol_s1 = {"beam_p0": 2.5e3, "pmax": 7.5e3, "pmin":0,"Racc": 4.5e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 3.52e-4,"circular": True, "Nmu": 4.39e20 * (1 - 1/np.e)}
-mucol_s2 = {"beam_p0": 5e3, "pmax": 15e3, "pmin":0,"Racc": 10e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 588e-4,"circular": True, "Nmu": 3.59e20 * (1 - 1/np.e)}
+mutristan_small = {"beam_p0": 1e3, "pmax": 3e3, "pmin":0,"Racc": 3e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 1.12e-4,"circular": True, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7}
+mutristan_large = {"beam_p0": 3e3, "pmax": 9e3, "pmin":0,"Racc": 9e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 7e-5,"circular": True, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7}
+mucol_s1 = {"beam_p0": 2.5e3, "pmax": 7.5e3, "pmin":0,"Racc": 4.5e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 3.52e-4,"circular": True, "Nmu": 4.9e9  * 4.5e3* 1.2e7}
+mucol_s2 = {"beam_p0": 5e3, "pmax": 15e3, "pmin":0,"Racc": 10e5/2/np.pi, "beam_dpop": 0.1, "beam_dtheta": 588e-4,"circular": True, "Nmu": 1.8e9 * 10e3 * 1.2e7}
 
 
 parameters = {"mutristan_small": mutristan_small, "mutristan_large": mutristan_large, 'mucol_s1' : mucol_s1, 'mucol_s2': mucol_s2}
 
+#mucol1: 4.39e20 * (1 - 1/np.e)*1/3.154
+#mucol2: 3.59e20 * (1 - 1/np.e)*1/3.154

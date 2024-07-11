@@ -242,6 +242,7 @@ class cc:
             return
         else:
             self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
+           # print(self.Lc/ self.Racc) fss factor
             L = (f * self.Lc)/2
             d = np.sqrt(self.Racc**2 - L**2)
 

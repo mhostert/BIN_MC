@@ -197,7 +197,7 @@ class SimulateDetector():
         probs = 1 - np.exp(-1*self.cs * line_integrals)
 
         factors = np.full((self.sample_size,1), self.Nmu) * self.w
-        del self.w
+        del self.w #can be retrieved by np.sum(sim.part_face_counts, axis=1)
         self.counts = factors * probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
         self.total_count = np.sum(self.counts)
         self.time[4] = time.time()
