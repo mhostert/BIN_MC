@@ -5,6 +5,7 @@ import copy
 from numba import njit
 import sys
 AVOGADRO = 6.02214e23
+MASS_NUCLEON = 939e6 *1.6e-19/(3e8)**2 * 10**3
 class face:
     def __init__(self, density):
         self.density = density #density in which they're going
@@ -38,21 +39,6 @@ class barrel:
         
         indices = np.where(mask)[0] #array of indices of particles that we will consider
         a,b,c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
-
-        '''coeffs = np.vstack((a,b,c)).T #( indices size), 3)
-        roots=np.empty((a.shape[0], 2))
-        for i,poly in enumerate(coeffs):
-            root = np.roots(poly)
-            root1 = np.zeros(2)
-            if isinstance(root[0],complex):
-                 root1[0] = -1
-            else:
-                root1[0] = root[0]  
-            if isinstance(root[1], complex):
-                root1[1] = -1
-            else:
-                root1[1] = root[1]    
-            roots[i,:] = root1# (indices size, 2) THIS MIGHT NOT ALWAYS have size two'''
         
         info = get_sols(a,b,c, self.zbeg, self.zend, position[mask], momenta[mask], mask)
             
@@ -241,9 +227,10 @@ class cc:
         elif f==-1:
             return
         else:
-            self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
+            #self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
            # print(self.Lc/ self.Racc) fss factor
-            L = (f * self.Lc)/2
+            #L = (f * self.Lc)/2
+            L = f*self.Racc*2*np.pi/2
             d = np.sqrt(self.Racc**2 - L**2)
 
             #mask - change everything that is on the straight segment
@@ -282,8 +269,9 @@ class cc:
             self.pnue[:,1:] = np.copy(new_mnue)
         
             #to remove all decays that are too far ~15/16
-            co = f*self.Lc/self.Racc
-            if (co >= 1/2) and (f>=2): #arbitrary; should be very careful
+            #co = f*self.Lc/self.Racc
+            co = f*2*np.pi
+            if (co >= 1/2): #arbitrary; should be very careful
                 if co>=2:
                     raise ValueError('This length for straight segment is way too big. In fact, it is over twice the radius.')
                 mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta)| (dphi < -1*np.pi/4*co)
@@ -326,3 +314,9 @@ class comp(material):
         for row in table:
             self.density += row[0].density * row[1]
             self.N += row[0].N * row[1] #row[0] is N of an element; row[1] is the percentage of it that occupies the total material
+
+class unif(material):
+    def __init__(self, density):
+        super().__init__()
+        self.density = density
+        self.N = self.density / MASS_NUCLEON

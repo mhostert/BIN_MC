@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy import interpolate
-from helpers import material, subs, comp
+from helpers import material, subs, comp, unif
 
 def cs_interp():
     log10E,sigmaeo,sigmamuo,_,sigmaebaro,sigmamubaro,_ = np.genfromtxt('xsecs/XCC.dat',unpack=True)
@@ -44,3 +44,5 @@ parameters = {"mutristan_small": mutristan_small, "mutristan_large": mutristan_l
 
 #mucol1: 4.39e20 * (1 - 1/np.e)*1/3.154
 #mucol2: 3.59e20 * (1 - 1/np.e)*1/3.154
+
+EARTH_DENSITY = unif(5.51).N

@@ -14,7 +14,7 @@ sys.path.append(td)
 cfp = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(cfp)
 import helpers
-import useful_data
+import useful_data as ud
 import time
 from numba import njit, jit
 from prettytable import PrettyTable
@@ -26,7 +26,7 @@ def D3distance(point1, point2):
     return np.sqrt((point1[:,0] - point2[:,0])**2 + (point1[:,1] - point2[:,1])**2 + (point1[:,2] - point2[:,2])**2)
 
 def get_cs(E, part):
-    sigmanue,sigmanuebar,sigmanumu,sigmanumubar= useful_data.cs_interp()
+    sigmanue,sigmanuebar,sigmanumu,sigmanumubar= ud.cs_interp()
     if part == "nue":
         return sigmanue(E)
     elif part == "numu":
@@ -145,6 +145,7 @@ class SimulateDetector():
             self.location[new_indices, 1] = neighb
             ips = ip2[new_mask,:]
             self.intersection_points[new_indices, 1, :] = ips
+            self.densities[new_indices, 0] = self.decayer[0].density
 
 
         
@@ -191,15 +192,21 @@ class SimulateDetector():
         
         self.dec_pos = self.intersection_points[:,0,:]
         del self.intersection_points
-        self.part_line_integrals = self.distances * self.densities # huge array of line_ints at 
-        line_integrals = np.sum(self.part_line_integrals, axis = 1)
+        self.part_line_integrals = self.distances * self.densities # huge array of line_ints at
+        for_mask = np.sum(self.part_line_integrals[:,1:], axis = 1)
+        line_integrals = for_mask + self.part_line_integrals[:,0]
+        
         self.cs = get_cs(self.E, self.particle)
         probs = 1 - np.exp(-1*self.cs * line_integrals)
 
         factors = np.full((self.sample_size,1), self.Nmu) * self.w
         del self.w #can be retrieved by np.sum(sim.part_face_counts, axis=1)
-        self.counts = factors * probs.T.reshape((self.sample_size,1)) # (sample_size, 1)
-        self.total_count = np.sum(self.counts)
+        to_not_count_mask = ~(self.location[:,0] == -2)
+        self.counts = factors *probs[:, np.newaxis] # (sample_size, 1)
+        #self.mask = (for_mask > 0)
+        self.mask = (self.counts>0) #if need be, use for_mask to see how much using the earth affects
+        self.mask = self.mask[:, 0]
+        self.counts = self.counts[self.mask]
         self.time[4] = time.time()
         del self.densities 
     
@@ -207,14 +214,12 @@ class SimulateDetector():
     def get_event_positions(self):
         '''weights have already been given'''
 
-        self.mask = (self.counts>0)
-        self.mask = self.mask[:, 0]
+
         
         self.momenta = self.momenta[self.mask]
         self.dec_pos = self.dec_pos[self.mask]
         self.distances = self.distances[self.mask]
         self.part_line_integrals = self.part_line_integrals[self.mask]
-        self.counts = self.counts[self.mask]
         self.location = self.location[self.mask]
         self.E = self.E[self.mask]
         self.cs = self.cs[self.mask]
@@ -225,6 +230,7 @@ class SimulateDetector():
         
         
         self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
+        
         self.time[5] = time.time()
         return
 
@@ -233,6 +239,7 @@ class SimulateDetector():
 
         self.intersection_points = np.full((self.sample_size, self.iterations, 3), 1e4) #1e4 is arbitrary
         self.densities = np.zeros((self.sample_size, self.iterations - 1))
+        self.densities[:,0] = ud.EARTH_DENSITY
         self.location = np.full((self.sample_size, self.iterations), -1) #starting at initials
         self.intersection_points[:,0,:] = self.cc.p
         self.distances = np.zeros((self.sample_size, self.iterations - 1))
@@ -306,7 +313,8 @@ class SimulateDetector():
 
         names = list(self.face_dict.keys())
         names.append('TOTAL')
-        
+        self.total_count = sum(list(self.facecounts2.values())) + sum(list(self.facecounts.values()))
+        print(self.total_count)
         data = [[self.facecounts2[key], self.facecounts[key], self.facecounts[key] + self.facecounts2[key]] for key in self.face_dict.keys()]
         data.append([sum(list(self.facecounts2.values())), sum(list(self.facecounts.values())), sum(list(self.facecounts2.values())) + sum(list(self.facecounts.values()))])
         table = PrettyTable()
@@ -335,14 +343,12 @@ class SimulateDetector():
             
     def plot(self, sim2, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12)):
         plt.figure(figsize = fs)
-        arr = self.events_position
-        arr2 = sim2.events_position
-        bs = np.linspace(-564, 564, nbins)
-        bs2 = np.linspace(-645, 645, nbins)
-        x = np.concatenate((arr[:,:,0].flatten(), arr2[:, :,0].flatten(), arr[:,:,0].flatten(), arr2[:, :,0].flatten()))
-        y = np.concatenate((arr[:,:,1].flatten(), arr2[:, :,1].flatten(), arr[:,:,1].flatten(), arr2[:, :,1].flatten()))
-        z = np.concatenate((arr[:, :,2].flatten(), arr2[:, :,2].flatten(), -1*arr[:, :,2].flatten(), -1 * arr2[:, :,2].flatten()))
-        w = np.concatenate((self.part_face_counts.flatten()/2,sim2.part_face_counts.flatten()/2, self.part_face_counts.flatten()/2, sim2.part_face_counts.flatten()/2))
+        bs = np.linspace(-1* self.zending, self.zending, nbins)
+        bs2 = np.linspace(-1*self.rmax, self.rmax, nbins)
+        x = np.concatenate((self.arrx, sim2.arrx, -1*self.arrx, -1*sim2.arrx))
+        y = np.concatenate((self.arry, sim2.arry, self.arry, sim2.arry))
+        z = np.concatenate((self.arrz, sim2.arrz, -1*self.arrz, -1*sim2.arrz))
+        w = np.concatenate((self.w/2,sim2.w/2, self.w/2, sim2.w/2))
         
         if orientation == 'z-y':
             plt.hist2d(z, y, alpha = 1, zorder = 10, bins = (bs, bs2), weights = w, cmin = cmin)
@@ -363,7 +369,23 @@ class SimulateDetector():
     
     ##@profile
     def clear_mem(self):
-        deletables=['cc','momenta','location','distances','counts','part_line_integrals','time','f','zbeginning','rmax','rbp','zending','iterations','Nmu','sample_size','particle', 'face_dict', 'facecounts','facecounts2']
+        
+        mask = (self.location[:,0] == -1)
+        self.part_face_counts[mask,0] = 0
+        self.w  = self.part_face_counts.flatten()
+        del self.part_face_counts
+        
+        
+        new_mask = (self.w > 0)
+        self.arrx = self.events_position[:,:,0].flatten()[new_mask]
+        self.arry = self.events_position[:,:,1].flatten()[new_mask]
+        self.arrz = self.events_position[:,:,2].flatten()[new_mask]
+        del self.events_position
+        
+        self.w    = self.w[new_mask]
+        del new_mask, mask
+        
+        deletables=['cc','momenta','location','distances','counts','part_line_integrals','time','f','zbeginning','rbp','iterations','Nmu','sample_size','particle', 'face_dict', 'facecounts','facecounts2', 'cs', 'mask', 'dec_pos']
 
         for att in deletables:
             if hasattr(self, att):
