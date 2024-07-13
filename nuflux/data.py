@@ -154,4 +154,4 @@ def get_particles(parameters="mutristan_small", N_evals = 1e5):
     pos_at = np.copy(mdb.pos_at)
     del mdb
     gc.collect()
-    return R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at
+    return R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at, parameters

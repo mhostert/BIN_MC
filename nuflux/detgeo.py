@@ -38,7 +38,7 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
     if not alr_loaded:
         dt = list(data.get_particles(param, N_evals))
     
-    sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8])
+    sim =  helpers.cc(R = dt[0], w =  dt[1], sample_size = dt[2], Enumu = dt[3], Enue = dt[4], N_mu = dt[5], pnumu_ar = dt[6], pnue_ar = dt[7], pos_at = dt[8], param = dt[9])
 
     return sim
 
@@ -46,7 +46,7 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
 class SimulateDetector():
 
     ##@profile
-    def __init__(self, coord_object, f, geom, particle):
+    def __init__(self, coord_object, f, geom, particle, Lss = None):
         self.time = np.zeros(6)
         self.f = f
         self.Geometry = geom
@@ -66,7 +66,7 @@ class SimulateDetector():
         
         self.cc = copy.deepcopy(coord_object)
         #coord_object.clear_mem()
-        self.cc.straight_segment_at_detector(self.f, self.rmax)
+        self.cc.straight_segment_at_detector(self.f, self.rmax, Lss = Lss)
         
         self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized (does not include all decays!!!)
         self.Nmu = self.cc.Nmu
@@ -201,7 +201,7 @@ class SimulateDetector():
 
         factors = np.full((self.sample_size,1), self.Nmu) * self.w
         del self.w #can be retrieved by np.sum(sim.part_face_counts, axis=1)
-        to_not_count_mask = ~(self.location[:,0] == -2)
+        #to_not_count_mask = ~(self.location[:,0] == -2)
         self.counts = factors *probs[:, np.newaxis] # (sample_size, 1)
         #self.mask = (for_mask > 0)
         self.mask = (self.counts>0) #if need be, use for_mask to see how much using the earth affects
@@ -269,7 +269,7 @@ class SimulateDetector():
             self.densities[accepted_ix, count-1] = obj.density
 
     #@profile
-    def run(self):
+    def run(self, show_time = 1):
         if (self.particle == "nue") | (self.particle == "numu"):
             self.time[0] = time.time()
             self.find_info()
@@ -282,16 +282,23 @@ class SimulateDetector():
                 return None, self
         
         elif self.particle=='both':
+            t0 = time.time()
             self.particle="numu"
             self.update_params()
             self.run()
             _, sim2 = SimulateDetector(self.cc, -1, self.Geometry, 'nue').run()
             
+            t1 = time.time() - t0
             
+            table = self.get_face_counts('both', sim2)
             
-            self.get_face_counts('both', sim2)
-
-            self.get_timetable(sim2)
+            print(f'Simulation: {self.cc.param} at L = {self.cc.L/100} m with {self.Geometry} as a detector')
+            print(f'Total Count: {self.total_count:.2e} events; took {t1:.3} s')
+            
+            print(table)
+            
+            if show_time:
+                self.get_timetable(sim2)
             
             
             self.clear_mem()
@@ -314,7 +321,7 @@ class SimulateDetector():
         names = list(self.face_dict.keys())
         names.append('TOTAL')
         self.total_count = sum(list(self.facecounts2.values())) + sum(list(self.facecounts.values()))
-        print(self.total_count)
+        
         data = [[self.facecounts2[key], self.facecounts[key], self.facecounts[key] + self.facecounts2[key]] for key in self.face_dict.keys()]
         data.append([sum(list(self.facecounts2.values())), sum(list(self.facecounts.values())), sum(list(self.facecounts2.values())) + sum(list(self.facecounts.values()))])
         table = PrettyTable()
@@ -324,7 +331,7 @@ class SimulateDetector():
             formatted_row = [f"{x:.3e}" for x in row]
             table.add_row([name] + formatted_row)
 
-        print(table)
+        return table
 
         
     def get_timetable(self, sim2):
@@ -342,7 +349,7 @@ class SimulateDetector():
         print(table)
             
     def plot(self, sim2, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12)):
-        plt.figure(figsize = fs)
+        fig, ax = plt.subplots(figsize = fs)
         bs = np.linspace(-1* self.zending, self.zending, nbins)
         bs2 = np.linspace(-1*self.rmax, self.rmax, nbins)
         x = np.concatenate((self.arrx, sim2.arrx, -1*self.arrx, -1*sim2.arrx))
@@ -351,15 +358,26 @@ class SimulateDetector():
         w = np.concatenate((self.w/2,sim2.w/2, self.w/2, sim2.w/2))
         
         if orientation == 'z-y':
-            plt.hist2d(z, y, alpha = 1, zorder = 10, bins = (bs, bs2), weights = w, cmin = cmin)
+            ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
+            plot_sim(self.Geometry, ax)
         
         elif orientation == 'z-x':
-            plt.hist2d(z, x, alpha = 1, zorder = 10, bins = (bs, bs2), weights = w, cmin = cmin)
+            ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
+            plot_sim(self.Geometry, ax)
+            
+        elif orientation == 'x-y':
+            ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
+            plot_sim(self.Geometry, ax, orientation = 'x-y')
+            
+            #ax.set_xlim(-1* self.rmax*20/12, self.rmax *20/12)
+            #ax.set_ylim(-1*self.rmax, self.rmax)
+            
+            ax.set_xlim(-1* self.rmax*10/12, self.rmax *10/12)
+            ax.set_ylim(0, self.rmax)
             
         else:
-            raise ValueError('Only orientations are z-y and z-x!')
+            raise ValueError('Only orientations are z-y, x-y, and z-x!')
             
-        plot_sim(self.Geometry)
         
         if savefig:
             plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
@@ -468,7 +486,7 @@ def get_events_njit2(shape, pweights, mid, counts, dec_pos, normed_m, cumulative
 
 
 
-def plot_sim(geom):
+def plot_sim(geom, ax, orientation ='z-y'):
 
     if geom == 'approximate_muon_detector_1':
         T1 = [[-231, 231,231,28,-28,-231,-231], [150,150,24,3,3,24,150]]
@@ -494,51 +512,78 @@ def plot_sim(geom):
 
         dets = [T1, ECAL1, ECAL2, ECAL3, HCAL1, HCAL2, HCAL3,SOLENOID, MD1, MD2, MD3, CONE1, CONE2, BL]
         cols = ['lightgrey']*1 + ['dimgrey']*3 + ['grey']*3 + ['darkgrey'] + 3*['grey'] + ['black']*2 + ['white']
-        plt.figure(figsize = (20,12))
+        #plt.figure(figsize = (20,12))
         for i, det in enumerate(dets):
-            plt.plot(det[0],det[1], color = cols[i])
-            plt.fill_between(det[0], det[1], color = cols[i], alpha=0.7)
+            ax.plot(det[0],det[1], color = cols[i])
+            ax.fill_between(det[0], det[1], color = cols[i], alpha=0.7)
             new_y =[-1*k for k in det[1]]
-            plt.plot(det[0], new_y, color = cols[i])
-            plt.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
+            ax.plot(det[0], new_y, color = cols[i])
+            ax.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
 
-        plt.xlabel("z-coordinate (cm)")
-        plt.ylabel("r-coordinate (cm)")
+        ax.set_xlabel("z-coordinate (cm)")
+        ax.set_ylabel("r-coordinate (cm)")
 
     
     elif (geom == 'approximate_muon_detector_2') | (geom == 'approximate_muon_detector_3'):
-        ECAL1=[[-221, -221, 221, 221, -221],[150, 170.2, 170.2, 150, 150]]
-        ECAL2 = [[230.7, 230.7, 250.9, 250.9, 230.7],[31, 170, 170, 33.9, 31]]
-        ECAL3 = [[-1 * i for i in ECAL2[0]], ECAL2[1]]
+        
+        if orientation=='x-y':
+            
+            MDET = 645
+            SPS1 = 446.1
+            SOL_1= 429
+            SPS2 = 425
+            SOL_2= 399.3
+            SPS3 = 364.9
+            SOL_3= 352.3
+            SPS4 = 348.3
+            HCAL = 333
+            SPS5 = 174
+            ECAL = 170.2
+            SPS6 = 150
+            CONE = 31
+            BL   = 2.2
+            dets = [MDET, SPS1, SOL_1, SPS2, SOL_2, SPS3, SOL_3, SPS4, HCAL, SPS5, ECAL, SPS6, CONE, BL]
+            cols = ['grey', 'white', 'gray', 'white', 'lightgrey', 'white','gray','white','darkgrey','white','dimgrey','white', 'black', 'white']
+            
+            for i, det in enumerate(dets):
+                circle = plt.Circle((0,0), det, zorder = i, alpha = 1, edgecolor = cols[i], facecolor=cols[i])
+                ax.add_artist(circle)
+                ax.set_xlabel('x-coordinate (cm)')
+                ax.set_ylabel('y-coordinate (cm)')
+                
+        else:
+            ECAL1=[[-221, -221, 221, 221, -221],[150, 170.2, 170.2, 150, 150]]
+            ECAL2 = [[230.7, 230.7, 250.9, 250.9, 230.7],[31, 170, 170, 33.9, 31]]
+            ECAL3 = [[-1 * i for i in ECAL2[0]], ECAL2[1]]
 
-        HCAL1 = [[-221, -221, 221, 221, -221],[174, 333, 333, 174, 174]]
-        HCAL2= [[235.4, 235.4, 412.9, 412.9,250.9, 250.9,235.4],[170, 324.6, 324.6, 56.8,33.9, 170,170]]
-        HCAL3 = [[-1 * i for i in HCAL2[0]], HCAL2[1]]
+            HCAL1 = [[-221, -221, 221, 221, -221],[174, 333, 333, 174, 174]]
+            HCAL2= [[235.4, 235.4, 412.9, 412.9,250.9, 250.9,235.4],[170, 324.6, 324.6, 56.8,33.9, 170,170]]
+            HCAL3 = [[-1 * i for i in HCAL2[0]], HCAL2[1]]
 
-        SOLENOID =[[-412.9, -412.9, 412.9, 412.9, -412.9],[348.3, 352.3, 352.3, 348.3, 348.3]]
-        SOLENOID_2 =[[-412.9, -412.9, 412.9, 412.9, -412.9],[364.9, 399.3, 399.3, 364.9, 364.9]]
-        SOLENOID_3 =[[-412.9, -412.9, 412.9, 412.9, -412.9],[425, 429, 429, 425, 425]]
+            SOLENOID =[[-412.9, -412.9, 412.9, 412.9, -412.9],[348.3, 352.3, 352.3, 348.3, 348.3]]
+            SOLENOID_2 =[[-412.9, -412.9, 412.9, 412.9, -412.9],[364.9, 399.3, 399.3, 364.9, 364.9]]
+            SOLENOID_3 =[[-412.9, -412.9, 412.9, 412.9, -412.9],[425, 429, 429, 425, 425]]
 
-        MD1 = [[-563.8, -563.8, 563.8, 563.8, 417.9, 417.9, -417.9, -417.9, -563.8],[78.2, 645, 645, 78.2, 57.5, 446.1, 446.1, 57.5, 78.2]]
+            MD1 = [[-563.8, -563.8, 563.8, 563.8, 417.9, 417.9, -417.9, -417.9, -563.8],[78.2, 645, 645, 78.2, 57.5, 446.1, 446.1, 57.5, 78.2]]
 
 
-        CONE1 = [[6.5,230.7, 250.9, 412.9, 417.9, 563.8,563.8, 6.5],[2.2,31,33.9, 56.8, 57.5 ,78.2, 2.2, 2.2]]
-        CONE2 = [[-1 * i for i in CONE1[0]], CONE1[1]]
+            CONE1 = [[6.5,230.7, 250.9, 412.9, 417.9, 563.8,563.8, 6.5],[2.2,31,33.9, 56.8, 57.5 ,78.2, 2.2, 2.2]]
+            CONE2 = [[-1 * i for i in CONE1[0]], CONE1[1]]
 
-        BL = [[-563.8, -563.8, 563.8, 563.8, -563.8], [-2.2, 2.2, 2.2, -2.2, -2.2]]
+            BL = [[-563.8, -563.8, 563.8, 563.8, -563.8], [-2.2, 2.2, 2.2, -2.2, -2.2]]
 
-        dets = [ECAL1, ECAL2, ECAL3, HCAL1, HCAL2, HCAL3,SOLENOID, SOLENOID_2, SOLENOID_3, MD1, CONE1, CONE2, BL]
-        cols = ['dimgrey']*3 + ['darkgrey']*3 + ['grey'] + ['lightgrey'] + ['gray'] + ['grey'] + ['black']*2 + ['white']
-        #plt.figure(figsize = (20,12))
-        for i, det in enumerate(dets):
-            plt.plot(det[0],det[1], color = cols[i])
-            plt.fill_between(det[0], det[1], color = cols[i], alpha=0.7)
-            new_y =[-1*k for k in det[1]]
-            plt.plot(det[0], new_y, color = cols[i])
-            plt.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
+            dets = [ECAL1, ECAL2, ECAL3, HCAL1, HCAL2, HCAL3,SOLENOID, SOLENOID_2, SOLENOID_3, MD1, CONE1, CONE2, BL]
+            cols = ['dimgrey']*3 + ['darkgrey']*3 + ['gray'] + ['lightgrey'] + ['gray'] + ['grey'] + ['black']*2 + ['white']
+            #plt.figure(figsize = (20,12))
+            for i, det in enumerate(dets):
+                ax.plot(det[0],det[1], color = cols[i])
+                ax.fill_between(det[0], det[1], color = cols[i], alpha=0.7)
+                new_y =[-1*k for k in det[1]]
+                ax.plot(det[0], new_y, color = cols[i])
+                ax.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
 
-        plt.xlabel("z-coordinate (cm)")
-        plt.ylabel("y-coordinate (cm)")
+            ax.set_xlabel("z-coordinate (cm)")
+            ax.set_ylabel("y-coordinate (cm)")
 
 
     else:

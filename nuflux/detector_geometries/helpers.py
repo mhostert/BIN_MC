@@ -181,8 +181,8 @@ def get_sols(a,b,c,zbeg, zend, position, momenta, mask):
 
 class cc:
 
-    def __init__(self, R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at):
-        
+    def __init__(self, R, w, sample_size, Enumu, Enue, N_mu, pnumu_ar, pnue_ar, pos_at, param):
+        self.param = param
         self.Racc = R
         nw = np.copy(w)
         del w
@@ -216,11 +216,12 @@ class cc:
         self.pnumu[:,1:] =mnumu
         self.pnue[:,1:] = mnue
 
-    def straight_segment_at_detector(self, f, h):
+    def straight_segment_at_detector(self, f, h, Lss = None):
         #ssl is straight segment length, ENTIRE, not half
         dphi = np.arcsin(self.p[:,2] / self.Racc)
         
-        if f==0:
+        if (f==0) & (not Lss):
+            self.L = 0
             mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*self.Racc) | (dphi < -1*np.pi/8)
             mask_acc = ~mask_not_accepted
             
@@ -230,7 +231,12 @@ class cc:
             #self.Lc = 2*  np.sqrt((-1*h**2 + np.sqrt(h**4 + 4*h**2 * self.Racc**2))/2)
            # print(self.Lc/ self.Racc) fss factor
             #L = (f * self.Lc)/2
-            L = f*self.Racc*2*np.pi/2
+            
+            if Lss:
+                L = Lss*50
+            else:
+                L = f*self.Racc*2*np.pi/2
+                
             d = np.sqrt(self.Racc**2 - L**2)
 
             #mask - change everything that is on the straight segment
@@ -270,7 +276,7 @@ class cc:
         
             #to remove all decays that are too far ~15/16
             #co = f*self.Lc/self.Racc
-            co = f*2*np.pi
+            co = L*2/self.Racc
             if (co >= 1/2): #arbitrary; should be very careful
                 if co>=2:
                     raise ValueError('This length for straight segment is way too big. In fact, it is over twice the radius.')
@@ -279,7 +285,8 @@ class cc:
                 mask_not_accepted = (dphi > np.pi/100) | (self.p[:,1] < -1*L/tantheta)| (dphi < -1*np.pi/8)
             
             mask_acc = ~mask_not_accepted
-        
+            self.L = L*2
+            
         self.p = self.p[mask_acc]
         self.pnumu = self.pnumu[mask_acc]
         self.pnue = self.pnue[mask_acc]
