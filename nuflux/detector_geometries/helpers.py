@@ -211,7 +211,7 @@ class cc:
             return
         
         elif Lss==0:
-            Lss = 0.001
+            Lss = 0.01
             
         Lss = 100*Lss
         self.L = Lss

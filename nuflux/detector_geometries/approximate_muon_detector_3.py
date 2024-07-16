@@ -203,6 +203,10 @@ INITIALIZERS = [one, two, three] #should not contain minus_one or zero or minus_
 DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero, four, five, fifty, eighteen]
 iterations = 35
-facedict = {}
+facedict = {'muon_detector': [1, 26, 31, 8, 49, 88], 
+            'solenoid': [20,21,22,23,24,25,32,33,34], 
+            'hcal':[10,19,28,29,30,39,47,71,72,76,77,81], 
+            'ecal':[11,35,41,42,46,52,68,69,70,83,86], 
+            'nozzles':[-2,2,14,15,17,27,43,78,53,66,67,82,85,87]}
 TESTS = []
 name = 'Det Test 0 Density'

@@ -19,8 +19,8 @@ outside = face(0)
 
 # decayers have: id, next_ids
 
-minus_two = decayer(block, -2, [3,5,6])
-minus_one = decayer(beampipe,-1, [3,4])
+minus_two = decayer(block, -2, [3,5,6], 6)
+minus_one = decayer(beampipe,-1, [3,4], 4)
 
 zero = cap(outside,0, [], 0,0,0) 
 one = initializer(block, 1, [5,6,7],3, 645)

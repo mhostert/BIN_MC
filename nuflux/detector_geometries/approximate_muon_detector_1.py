@@ -91,5 +91,5 @@ INITIALIZERS = [three, two, one] #should not contain minus_one or zero
 DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero,seven, fifteen, sixteen, twentyseven]
 iterations = 25
-facedict = {}
+
 name = 'Det v1'

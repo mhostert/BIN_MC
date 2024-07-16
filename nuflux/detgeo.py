@@ -52,15 +52,25 @@ def get_cs(E, part):
 def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, dt = None):
     '''Wrapper for data's Monte Carlo generation of muon decays. Alr_loaded if dt pre-generated, in which case you need to specify dt.'''
     
+    t0 = time.time()
+    
+    text = '(pre-generated dataset)'
+    
     if not alr_loaded:
         dt = list(data.get_particles(param, N_evals))
+        text = ''
         
     if dt:
         sim =  helpers.cc(C = dt[0], w =  dt[1], sample_size = dt[2], N_mu = dt[3], pnumu = dt[4], pnue = dt[5], pos = dt[6], name = dt[7], Emu = dt[8])
     
     else:
         raise ValueError('No dt provided.')
-
+    
+    t1 = time.time() - t0
+    
+    print(f'Simulation: {param} parameter set with {N_evals:.3e} evaluations {text}')
+    print(f'{dt[2]:.3e} MC generations; took {t1:.3} s')
+        
     return sim
 
 
@@ -100,7 +110,12 @@ class SimulateDetector():
         self.Nmu = self.cc.Nmu
         self.sample_size = self.cc.sample_size
         self.paramname = self.cc.name
-        self.Lval = self.cc.L
+        
+        if self.cc.L < 100:
+            self.Lval = 0
+            
+        else:
+            self.Lval = self.cc.L
         
         if self.particle in muonic_neutrinos:
             self.momenta = self.cc.pnumu[:,1:]
@@ -461,9 +476,10 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     if give_data:
         return x,y,z,w
 
-def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100):
+def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100, give_data = False, savefig = None):
     '''Wrapper to plot a hist of the neutrino interaction times.'''
     plt.figure(figsize  = fs)
+    
     if len(sims) == 2:
         times = np.concatenate((sims[0].times, sims[1].times))
         w = np.concatenate((sims[0].w, sims[1].w))
@@ -480,6 +496,41 @@ def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100):
     plt.title('Event Timing (with respect to collision time)')
     plt.hist(times, weights = w, histtype = histtype, bins = nbins)
     
+    if savefig:
+        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+            
+    if give_data:
+        return times, w
+    
+def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_data = False, savefig = None, ylog = True):
+    '''Wrapper to plot the phi distribution of neutrino events.'''
+    plt.figure(figsize = fs)
+    
+    if len(sims) == 2:
+        x = np.concatenate((sims[0].arrx, sims[1].arrx))
+        y = np.concatenate((sims[0].arry, sims[1].arry))
+        w = np.concatenate((sims[0].w, sims[1].w))
+    
+    elif len(sims) == 4:
+        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[2].arrx, -1*sims[3].arrx))
+        y = np.concatenate((sims[0].arry, sims[1].arry, sims[2].arry, sims[3].arry))
+        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
+    
+    phi = np.arctan(x/y)
+    
+    plt.hist(phi, weights = w, histtype = histtype, bins = nbins)
+    plt.ylabel(r'$N_{events}/yr$')
+    plt.xlabel(r'$\phi$ Distribution (rad)')
+    
+    if ylog:
+        plt.yscale('log')
+    
+    if savefig:
+        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+            
+    if give_data:
+        return phi, w
+
 def get_timetable(sims):
     '''Prints the table of detailed time durations for the simulation.'''
     
@@ -505,19 +556,6 @@ def get_timetable(sims):
         table.add_row([name] + formatted_row)
         
     print(table)
-
-
-@jit(nopython = False, forceobj=True)
-def calculate_facecounts(face_dict, location, part_face_counts):
-    '''Gets the facecounts for each detector component in the simulation.'''
-    facecounts = {}
-    locs = location[:, :-1]
-    
-    for key, faces in face_dict.items():
-        mask = np.isin(locs, faces)
-        facecounts[key] = np.sum(part_face_counts[mask])
-
-    return facecounts
 
 def get_face_counts(sims):
     '''Prints the table of detailed distribution of events in detector components.'''
@@ -555,6 +593,20 @@ def get_face_counts(sims):
         table.add_row([name] + formatted_row)
 
     print(table)
+    
+
+@jit(nopython = False, forceobj=True)
+def calculate_facecounts(face_dict, location, part_face_counts):
+    '''Gets the facecounts for each detector component in the simulation.'''
+    facecounts = {}
+    locs = location[:, :-1]
+    
+    for key, faces in face_dict.items():
+        mask = np.isin(locs, faces)
+        facecounts[key] = np.sum(part_face_counts[mask])
+
+    return facecounts
+
 
 def get_probs_njit(dec_pos, momenta, distances, iterations,counts, cs, part_line_integrals, temporary):
     '''Gets the number of events (weights) of each interacting neutrino.'''
