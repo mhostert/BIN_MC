@@ -18,6 +18,11 @@ import data
 import helpers
 import useful_data as ud
 
+@profile
+def check_mem():
+    '''For memory-consuming-checking processes.'''
+    z = 1+2
+    return
 
 def D3distance(point1, point2):
     '''3D Euclidian distance between two points.'''
@@ -45,12 +50,16 @@ def get_cs(E, part):
         return sigmanumubar(E)
 
 def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, dt = None):
-    '''Wrapper for data's Monte Carlo generation of muon decays.'''
+    '''Wrapper for data's Monte Carlo generation of muon decays. Alr_loaded if dt pre-generated, in which case you need to specify dt.'''
     
     if not alr_loaded:
         dt = list(data.get_particles(param, N_evals))
+        
+    if dt:
+        sim =  helpers.cc(C = dt[0], w =  dt[1], sample_size = dt[2], N_mu = dt[3], pnumu = dt[4], pnue = dt[5], pos = dt[6], name = dt[7], Emu = dt[8])
     
-    sim =  helpers.cc(C = dt[0], w =  dt[1], sample_size = dt[2], N_mu = dt[3], pnumu = dt[4], pnue = dt[5], pos = dt[6], name = dt[7], Emu = dt[8])
+    else:
+        raise ValueError('No dt provided.')
 
     return sim
 
@@ -61,7 +70,7 @@ part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 
 
 class SimulateDetector():
     '''Detector Simulation.'''
-    def __init__(self, coord_object, geom, particle, Lss = 0):
+    def __init__(self, coord_object, geom, particle = 'nue', Lss = 0):
         self.time = np.zeros(6)
         
         #Detector-related quantities
@@ -429,16 +438,19 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     if orientation == 'z-y':
         ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
         plot_sim(sims[0].Geometry, ax)
+        ax.set_title('Event Distribution: z-y')
         
     elif orientation == 'z-x':
         ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
         plot_sim(sims[0].Geometry, ax)
+        ax.set_title('Event Distribution: z-x')
             
     elif orientation == 'x-y':
         ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
         plot_sim(sims[0].Geometry, ax, orientation = 'x-y')
         ax.set_xlim(-1* sims[0].rmax*10/12, sims[0].rmax *10/12)
         ax.set_ylim(0, sims[0].rmax)
+        ax.set_title('Event Distribution: x-y')
             
     else:
         raise ValueError('Only orientations are z-y, x-y, and z-x!')  
@@ -448,6 +460,25 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
             
     if give_data:
         return x,y,z,w
+
+def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100):
+    '''Wrapper to plot a hist of the neutrino interaction times.'''
+    plt.figure(figsize  = fs)
+    if len(sims) == 2:
+        times = np.concatenate((sims[0].times, sims[1].times))
+        w = np.concatenate((sims[0].w, sims[1].w))
+    
+    elif len(sims) == 4:
+        times = np.concatenate((sims[0].times, sims[1].times, sims[2].times, sims[3].times))
+        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
+        
+    else:
+        raise ValueError('Wrong number of sims. Something went wrong.')
+    
+    plt.xlabel('Time before collision (s)')
+    plt.ylabel(r'$N_{events}$')
+    plt.title('Event Timing (with respect to collision time)')
+    plt.hist(times, weights = w, histtype = histtype, bins = nbins)
     
 def get_timetable(sims):
     '''Prints the table of detailed time durations for the simulation.'''
@@ -614,7 +645,7 @@ def plot_sim(geom, ax, orientation ='z-y'):
     elif (geom == 'approximate_muon_detector_2') | (geom == 'approximate_muon_detector_3'):
         
         if orientation=='x-y':
-             MDET = 645
+            MDET = 645
             SPS1 = 446.1
             SOL_1= 429
             SPS2 = 425
@@ -673,8 +704,3 @@ def plot_sim(geom, ax, orientation ='z-y'):
 
     else:
         print("this geometry has not been implemented yet!")
-
-@profile
-def che():
-    '''For memory-consuming-checking processes.'''
-    print('mem')
