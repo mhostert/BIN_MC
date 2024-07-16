@@ -92,4 +92,4 @@ DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero,seven, fifteen, sixteen, twentyseven]
 iterations = 25
 facedict = {}
-TESTS = []
+name = 'Det v1'

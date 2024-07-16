@@ -43,3 +43,4 @@ DECAYER = [minus_one, minus_two]
 OUTSIDE = [zero,four, five, six]
 iterations = 7
 facedict = {}
+name = 'Det v0'

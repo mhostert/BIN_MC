@@ -1,39 +1,30 @@
-
-# approximate muon detector (v2)
-
 from helpers import face, decayer, cap, initializer, barrel, conic
 import useful_data as ud
 import copy
 
-#these densities will be number densities
+#initializing detector components
 muon_detector = face(ud.Fe.N)
 solenoid_borders = face(ud.Fe.N)
 solenoid_mid = face(ud.Al.N)
-hcal = face(ud.hcal_CLICdet.N) # Fe absorber, middle parts complex
+hcal = face(ud.hcal_CLICdet.N) # Fe absorber, middle parts comple
 ecal = face(ud.ecal_CLICdet.N) # W absrober plates, silicon detector, have to weigh them appropriately
 space_between = face(0) # this includes the very thin tracker
 nozzle = face(ud.W.N)
 beampipe = face(0)
 outside = face(0)
 
-# caps have: id, next_ids, zpos, rbeg, rend
-
-# barrels have: id, next_ids, rpos, zbeg, zend
-
-# conic have: id, next_ids, tan_theta, zbeg, zend, rsmall, direction
-
-# initializers have: id, next_ids, rsmall, rbig (their zpos is already defined in detgeo) (these are the elements of the first barrier to be in the detector)
-
-# decayers have: id, next_ids
-
+#decayers
 minus_two = decayer(nozzle, -2, [13, 50], 50) #decays outside beampipe, if any
 minus_one = decayer(beampipe,-1, [15, 16, 17, 18], 18) #decays in beampipe
 
+#non-detector
 zero = cap(outside,0, [], 0.,0.,0.) # needs only the special = "end"
 
+#initializers
 one = initializer(muon_detector, 1, [4,6,88], 78.2, 645)
 two = initializer(nozzle,2, [8,9,10,11,12,13], 2.2, 78.2)
 three = initializer(beampipe, 3, [15,16,17,18], 0., 2.2)
+
 
 four = barrel(outside, 4, [], 645., -563.8, 563.8)
 five = cap(outside, 5, [], 563.8, 78.2, 645.)
@@ -70,6 +61,7 @@ twentythree = barrel(solenoid_borders, 23, [54,56], 348.3, -412.9, 412.9)
 twentyfour = barrel(solenoid_mid, 24, [57,59], 364.9, -412.9, 412.9)
 twentyfive = barrel (solenoid_borders, 25, [60,62], 425., -412.9, 412.9)
 twentysix = barrel(muon_detector, 26, [4,5], 446.1, -417.9, 417.9)
+
 twentyseven = copy.deepcopy(nine)
 twentyseven.id = 27
 twentyseven.density = nozzle.density
@@ -85,7 +77,6 @@ thirtyfour = barrel(solenoid_borders, 34, [60,61,62], 429., -412.9, 412.9)
 thirtyfive = cap(ecal, 35, [38,39,40,67], -250.9, 33.9, 170.)
 thirtysix = cap(space_between, 36, [29, 71], -235.4, 170., 324.6)
 thirtyseven = barrel(space_between, 37, [23,29],324.6, -412.9, -235.4 )
-
 thirtyeight = cap(space_between, 38, [41,42,43,44,69, 70, 71, 72, 87], -230.7, 31., 170.)
 thirtynine = barrel(hcal, 39, [36], 170., -250.9, -235.4)
 forty = barrel(space_between, 40, [23,29,69,71], 170., -235.4, -230.7)
@@ -98,6 +89,7 @@ fortyfive = copy.deepcopy(fortythree)
 fortyfive.id = 45
 fortyfive.density = space_between.density
 fortyfive.next_ids = [41,42]
+
 seventyeight = conic(nozzle, 78, [46,47,49,50,51], (33.9 - 31)/(250.9 - 230.7), 230.7, 250.9, 31., 'away')
 fortysix = copy.deepcopy(seventyeight)
 fortysix.id = 46
@@ -118,6 +110,7 @@ fiftyfour = barrel(space_between, 54, [24,31], 352.3, -412.9, 412.9)
 fiftyfive = barrel(space_between, 55, [23,28,29,30,31,81],  348.3, -412.9, 412.9)
 fiftysix = cap(space_between, 56, [31], 412.9, 348.3, 352.3)
 fiftyseven = barrel(space_between, 57, [25,31], 399.3, -412.9, 412.9)
+
 fiftyeight = barrel(space_between, 58, [24,31,32], 364.9, -412.9, 412.9)
 fiftynine = cap(space_between, 59, [31], 412.9, 364.9, 399.3)
 sixty = barrel(space_between, 60, [26,31], 429., -412.9, 412.9)
@@ -131,6 +124,7 @@ sixtysix = copy.deepcopy(fortynine)
 sixtysix.id = 66
 sixtysix.density = nozzle.density
 sixtysix.next_ids = [49,50,51]
+
 sixtyseven = copy.deepcopy(eleven)
 sixtyseven.id = 67
 sixtyseven.density = nozzle.density
@@ -141,6 +135,7 @@ sixtyeight.density = ecal.density
 sixtyeight.next_ids = [35]
 sixtynine = cap(ecal, 69, [73,74,84], -221., 150.0, 170.2)
 seventy = barrel(ecal, 70, [73,74,84], 170.2, -221., 221.)
+
 seventyone = copy.deepcopy(sixtyfive)
 seventyone.id = 71
 seventyone.density = hcal.density
@@ -150,12 +145,14 @@ seventythree = copy.deepcopy(seventy)
 seventythree.id = 73
 seventythree.density = space_between.density
 seventythree.next_ids = [71,72]
+
 seventyfour = cap(space_between, 74, [42,71,72], 221., 150., 170.2)
 seventyfive = barrel(space_between, 75, [72], 170., 230.7, 235.4)
 seventysix = barrel(hcal, 76, [79,80], 170., 235.4, 250.9)
 seventyseven = cap(hcal, 77, [79,80,85], 250.9, 33.9, 170.)
 seventynine = cap(space_between, 79, [31,82], 412.9, 56.8, 324.6)
 eighty = barrel(space_between, 80, [23,31], 324.6, 235.4, 412.9)
+
 eightyone = copy.deepcopy(eighty)
 eightyone.id = 81
 eightyone.density = hcal.density
@@ -168,6 +165,7 @@ eightythree = copy.deepcopy(seventyfive)
 eightythree.id = 83
 eightythree.density = ecal.density
 eightythree.next_ids = [77]
+
 eightyfour = copy.deepcopy(fortyone)
 eightyfour.id = 84
 eightyfour.density = space_between.density
@@ -176,6 +174,7 @@ eightyfive = copy.deepcopy(fortyseven)
 eightyfive.id = 85
 eightyfive.density = nozzle.density
 eightyfive.next_ids = [47,48,49,50,51]
+
 eightysix = copy.deepcopy(seventysix)
 eightysix.id = 86
 eightysix.density = ecal.density
@@ -185,12 +184,7 @@ eightyseven.id = 87
 eightyseven.density = nozzle.density
 eightyseven.next_ids = [12,13]
 
-
-
-test1 = conic(outside, -3, [], 2., 1., 2., 2., 'away')
-test2 = cap(outside, -4, [], 0., 0., 1.)
-test3 = barrel(outside, -5, [], 1., 0., 1.)
-
+#All objects
 OBJECTS = [zero, one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, 
            fifteen, sixteen, seventeen, eighteen, nineteen, twenty, twentyone, twentytwo, twentythree, twentyfour, 
            twentyfive, twentysix, twentyseven, twentyeight,twentynine,thirty, thirtyone, thirtytwo, thirtythree, thirtyfour, 
@@ -199,6 +193,8 @@ OBJECTS = [zero, one, two, three, four, five, six, seven, eight, nine, ten, elev
            fiftyeight, fiftynine, sixty, sixtyone, sixtytwo, sixtythree, sixtyfour, sixtyfive, sixtysix, sixtyseven, sixtyeight,
            sixtynine, seventy, seventyone, seventytwo, seventythree, seventyfour, seventyfive, seventysix, seventyseven, seventyeight,
            seventynine, eighty, eightyone, eightytwo, eightythree, eightyfour, eightyfive, eightysix, eightyseven, eightyeight, eightynine, ninety, ninetyone, ninetytwo]
+
+#Detector specifications, required iterations, and face_dict
 zbeginning = -563.8
 rmax = 645.
 rbp = 2.2
@@ -212,5 +208,4 @@ facedict = {'muon_detector': [1, 26, 31, 8, 49, 88],
             'hcal':[10,19,28,29,30,39,47,71,72,76,77,81], 
             'ecal':[11,35,41,42,46,52,68,69,70,83,86], 
             'nozzles':[-2,2,14,15,17,27,43,78,53,66,67,82,85,87]}
-
-TESTS = [test1, test2, test3]
+name = 'Det v2'

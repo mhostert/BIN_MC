@@ -199,6 +199,7 @@ class MuonDecay(object):
         truncate_exp=False,
         circular = False,
         Racc = 1e6,
+        C = 3e5,
         Ddetector = [3e2, 20],
         det_height = 10e2,
         get_int = True
@@ -210,6 +211,7 @@ class MuonDecay(object):
         if circular == True:
             self.R_ND = [0, 0, Racc]
         self.Racc = Racc #cm
+        self.C = C #cm
         self.Rdet = Ddetector[0]
         self.Rhole = Ddetector[1]
         self.det_height = det_height

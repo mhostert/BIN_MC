@@ -205,3 +205,4 @@ OUTSIDE = [minus_one, zero, four, five, fifty, eighteen]
 iterations = 35
 facedict = {}
 TESTS = []
+name = 'Det Test 0 Density'
