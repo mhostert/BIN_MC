@@ -452,17 +452,17 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
         
     if orientation == 'z-y':
         ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_sim(sims[0].Geometry, ax)
+        plot_det(sims[0].Geometry, ax)
         ax.set_title('Event Distribution: z-y')
         
     elif orientation == 'z-x':
         ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_sim(sims[0].Geometry, ax)
+        plot_det(sims[0].Geometry, ax)
         ax.set_title('Event Distribution: z-x')
             
     elif orientation == 'x-y':
         ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_sim(sims[0].Geometry, ax, orientation = 'x-y')
+        plot_det(sims[0].Geometry, ax, orientation = 'x-y')
         ax.set_xlim(-1* sims[0].rmax*10/12, sims[0].rmax *10/12)
         ax.set_ylim(0, sims[0].rmax)
         ax.set_title('Event Distribution: x-y')
@@ -655,10 +655,10 @@ def get_events_njit2(shape, pweights, mid, counts, dec_pos, normed_m, cumulative
     return events_position, part_face_counts
 
 
-def plot_sim(geom, ax, orientation ='z-y'):
+def plot_det(geom, ax, orientation ='z-y'):
     '''Plots the detector geometry behind a sim plot.'''
 
-    if geom == 'approximate_muon_detector_1':
+    if geom == 'det_v1':
         T1 = [[-231, 231,231,28,-28,-231,-231], [150,150,24,3,3,24,150]]
 
         ECAL1=[[-231, -231, 231, 231, -231],[150, 170, 170, 150, 150]]
@@ -694,7 +694,7 @@ def plot_sim(geom, ax, orientation ='z-y'):
         ax.set_ylabel("r-coordinate (cm)")
 
     
-    elif (geom == 'approximate_muon_detector_2') | (geom == 'approximate_muon_detector_3'):
+    elif (geom == 'det_v2') | (geom == 'zero_density_test'):
         
         if orientation=='x-y':
             MDET = 645
