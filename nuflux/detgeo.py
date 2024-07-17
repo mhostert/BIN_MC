@@ -423,9 +423,12 @@ class SimulateDetector():
                 delattr(self, att)
 
                 
-def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12)):
+def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True):
     '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.'''
-    fig, ax = plt.subplots(figsize = fs)
+    
+    if not ax:
+        fig, ax = plt.subplots(figsize = fs)
+        
     bs = np.linspace(-1* sims[0].zending, sims[0].zending, nbins)
     bs2 = np.linspace(-1*sims[0].rmax, sims[0].rmax, nbins)
         
@@ -449,36 +452,47 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     
     else:
         raise ValueError('This collision plotting has not been implemented yet!')
-        
+    
+    lbl4 =
+    lbl3 = "Collision: {}" 
+    lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
+    lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events/yr"
+    
     if orientation == 'z-y':
-        ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_det(sims[0].Geometry, ax)
-        ax.set_title('Event Distribution: z-y')
+        ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
+        plot_det(sims[0].Geometry, ax, xl  = xl, yl = yl)
         
     elif orientation == 'z-x':
-        ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_det(sims[0].Geometry, ax)
-        ax.set_title('Event Distribution: z-x')
+        print(lbl)
+        ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
+        plot_det(sims[0].Geometry, ax, xl = xl, yl = yl)
             
     elif orientation == 'x-y':
-        ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin)
-        plot_det(sims[0].Geometry, ax, orientation = 'x-y')
+        ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
+        plot_det(sims[0].Geometry, ax, orientation = 'x-y', xl = xl, yl = yl)
         ax.set_xlim(-1* sims[0].rmax*10/12, sims[0].rmax *10/12)
         ax.set_ylim(0, sims[0].rmax)
-        ax.set_title('Event Distribution: x-y')
-            
+        ax.legend([lbl], loc='lower right').set_zorder(50)
+
     else:
         raise ValueError('Only orientations are z-y, x-y, and z-x!')  
         
+    ax.legend([lbl], loc='lower right').set_zorder(50)
+    
+    if title:
+        ax.set_title(f'Event Distribution: {orientation}')
+    
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
             
     if give_data:
         return x,y,z,w
 
-def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100, give_data = False, savefig = None):
+def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_data = False, savefig = None, label = '', legend = False):
     '''Wrapper to plot a hist of the neutrino interaction times.'''
-    plt.figure(figsize  = fs)
+    
+    if fs:
+        plt.figure(figsize  = fs)
     
     if len(sims) == 2:
         times = np.concatenate((sims[0].times, sims[1].times))
@@ -494,7 +508,10 @@ def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100, give_
     plt.xlabel('Time before collision (s)')
     plt.ylabel(r'$N_{events}$')
     plt.title('Event Timing (with respect to collision time)')
-    plt.hist(times, weights = w, histtype = histtype, bins = nbins)
+    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
+    
+    if legend:
+        plt.legend(loc='best')
     
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
@@ -502,9 +519,11 @@ def event_timing(sims, fs = (20,12), histtype = 'stepfilled', nbins = 100, give_
     if give_data:
         return times, w
     
-def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_data = False, savefig = None, ylog = True):
+def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_data = False, savefig = None, ylog = True, label='', legend = False):
     '''Wrapper to plot the phi distribution of neutrino events.'''
-    plt.figure(figsize = fs)
+    
+    if fs:
+        plt.figure(figsize = fs)
     
     if len(sims) == 2:
         x = np.concatenate((sims[0].arrx, sims[1].arrx))
@@ -518,10 +537,13 @@ def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_da
     
     phi = np.arctan(x/y)
     
-    plt.hist(phi, weights = w, histtype = histtype, bins = nbins)
+    plt.hist(phi, weights = w, histtype = histtype, bins = nbins, label = label)
     plt.ylabel(r'$N_{events}/yr$')
     plt.xlabel(r'$\phi$ Distribution (rad)')
     
+    if legend:
+        plt.legend(loc='best')
+        
     if ylog:
         plt.yscale('log')
     
@@ -655,7 +677,7 @@ def get_events_njit2(shape, pweights, mid, counts, dec_pos, normed_m, cumulative
     return events_position, part_face_counts
 
 
-def plot_det(geom, ax, orientation ='z-y'):
+def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
     '''Plots the detector geometry behind a sim plot.'''
 
     if geom == 'det_v1':
@@ -715,9 +737,15 @@ def plot_det(geom, ax, orientation ='z-y'):
             cols = ['grey', 'white', 'gray', 'white', 'lightgrey', 'white','gray','white','darkgrey','white','dimgrey','white', 'black', 'white']
             
             for i, det in enumerate(dets):
-                circle = plt.Circle((0,0), det, zorder = i, alpha = 1, edgecolor = cols[i], facecolor=cols[i])
+                circle = plt.Circle((0,0), det, zorder = i, alpha = 0.7, edgecolor = cols[i], facecolor=cols[i])
                 ax.add_artist(circle)
+                
+            ax.scatter(MDET,MDET, color = cols[3])
+            
+            if xl:
                 ax.set_xlabel('x-coordinate (cm)')
+            
+            if yl:
                 ax.set_ylabel('y-coordinate (cm)')
                 
         else:
@@ -751,8 +779,11 @@ def plot_det(geom, ax, orientation ='z-y'):
                 ax.plot(det[0], new_y, color = cols[i])
                 ax.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
 
-            ax.set_xlabel("z-coordinate (cm)")
-            ax.set_ylabel("y-coordinate (cm)")
+            if xl:
+                ax.set_xlabel("z-coordinate (cm)")
+            
+            if yl:
+                ax.set_ylabel("y-coordinate (cm)")
 
     else:
         print("this geometry has not been implemented yet!")
