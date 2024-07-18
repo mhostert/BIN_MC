@@ -68,7 +68,7 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
     
     t1 = time.time() - t0
     
-    print(f'Simulation: {param} parameter set with {N_evals:.3e} evaluations {text}')
+    print(f'Simulation: {dt[7]} parameter set with {N_evals:.3e} evaluations {text}')
     print(f'{dt[2]:.3e} MC generations; took {t1:.3} s')
         
     return sim
@@ -77,6 +77,8 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
 muonic_neutrinos = ['numu', 'numubar']
 electronic_neutrinos = ['nue', 'nuebar']
 part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 'anti ν_μ'}
+acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
+acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
 
 class SimulateDetector():
     '''Detector Simulation.'''
@@ -316,8 +318,6 @@ class SimulateDetector():
     def run(self, show_components = 1, show_time = 1, collision = 'mu+mu+'):
         '''Runs the whole simulation. show_components for distribution within different detector components. show_time for time summary. collision is the type of collision.'''        
         
-        acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
-        acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
         colls_types_to_part = {'mu+e-': ['numubar', 'nue'], 'mu+mu+': ['numubar', 'nue'], 'mu+mu-':['numubar', 'nue', 'numu', 'nuebar']}
         
         if (self.particle in muonic_neutrinos) | (self.particle in electronic_neutrinos):
@@ -453,8 +453,8 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     else:
         raise ValueError('This collision plotting has not been implemented yet!')
     
-    lbl4 =
-    lbl3 = "Collision: {}" 
+    lbl4 = f"Experiment: {sims[0].paramname}"
+    lbl3 = f"Collision: {acc_colls_dict[sims[0].collision]}" 
     lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
     lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events/yr"
     
@@ -463,7 +463,6 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
         plot_det(sims[0].Geometry, ax, xl  = xl, yl = yl)
         
     elif orientation == 'z-x':
-        print(lbl)
         ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
         plot_det(sims[0].Geometry, ax, xl = xl, yl = yl)
             
@@ -472,12 +471,11 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
         plot_det(sims[0].Geometry, ax, orientation = 'x-y', xl = xl, yl = yl)
         ax.set_xlim(-1* sims[0].rmax*10/12, sims[0].rmax *10/12)
         ax.set_ylim(0, sims[0].rmax)
-        ax.legend([lbl], loc='lower right').set_zorder(50)
 
     else:
         raise ValueError('Only orientations are z-y, x-y, and z-x!')  
         
-    ax.legend([lbl], loc='lower right').set_zorder(50)
+    ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
     
     if title:
         ax.set_title(f'Event Distribution: {orientation}')
@@ -488,7 +486,7 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     if give_data:
         return x,y,z,w
 
-def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_data = False, savefig = None, label = '', legend = False):
+def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_data = False, savefig = None, label = '', legend = False, title = True):
     '''Wrapper to plot a hist of the neutrino interaction times.'''
     
     if fs:
@@ -505,10 +503,17 @@ def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_
     else:
         raise ValueError('Wrong number of sims. Something went wrong.')
     
-    plt.xlabel('Time before collision (s)')
-    plt.ylabel(r'$N_{events}$')
-    plt.title('Event Timing (with respect to collision time)')
-    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
+    times *= 1e9
+    w *= 1e-9
+    lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
+    
+    plt.xlabel('Time before collision (ns)')
+    plt.ylabel(r'$N_{events}\ (1e9)$')
+    
+    if title:
+        plt.title('Event Timing (with respect to collision time)')
+        
+    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = lbl)
     
     if legend:
         plt.legend(loc='best')
@@ -740,6 +745,9 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
                 circle = plt.Circle((0,0), det, zorder = i, alpha = 0.7, edgecolor = cols[i], facecolor=cols[i])
                 ax.add_artist(circle)
                 
+            ax.scatter(MDET,MDET, color = cols[3])
+            ax.scatter(MDET,MDET, color = cols[3])
+            ax.scatter(MDET,MDET, color = cols[3])
             ax.scatter(MDET,MDET, color = cols[3])
             
             if xl:
