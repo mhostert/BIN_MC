@@ -12,6 +12,7 @@ from numba import njit, jit
 from prettytable import PrettyTable
 from memory_profiler import profile
 from scipy.stats import uniform
+from matplotlib.colors import LogNorm
 
 import DarkNews as dn
 import data
@@ -82,7 +83,7 @@ acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
 
 class SimulateDetector():
     '''Detector Simulation.'''
-    def __init__(self, coord_object, geom, particle = 'nue', Lss = 0):
+    def __init__(self, coord_object, geom = 'det_v2', particle = 'nue', Lss = 0):
         self.time = np.zeros(6)
         
         #Detector-related quantities
@@ -372,6 +373,7 @@ class SimulateDetector():
                 raise ValueError("Something went wrong with the number of simulatioms.")
             
             t1 = time.time() - t0
+            self.tc = total_count
             
             print(f'Simulation: {self.paramname} ({acc_colls_dict[collision]}) at L = {self.Lval/100:.2f} m with {self.detname} as a detector')
             print(f'Total Count: {total_count:.2e} events; took {t1:.3} s')
@@ -398,9 +400,12 @@ class SimulateDetector():
             self.part_face_counts[mask,0] = 0
             self.w  = self.part_face_counts.flatten()
             
+            self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
+            
             del self.part_face_counts
         
             new_mask = (self.w > 0)
+            self.E = self.E.flatten()[new_mask]
             self.arrx = self.events_position[:,:,0].flatten()[new_mask]
             self.arry = self.events_position[:,:,1].flatten()[new_mask]
             self.arrz = self.events_position[:,:,2].flatten()[new_mask]
@@ -422,8 +427,41 @@ class SimulateDetector():
             if hasattr(self, att):
                 delattr(self, att)
 
+def get_data(sims):
+    '''Retrieving data from the sims object.'''
+    
+    if sims[0].collision == 'mu+mu-':
+        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[2].arrx, -1*sims[3].arrx))
+        y = np.concatenate((sims[0].arry, sims[1].arry, sims[2].arry, sims[3].arry))
+        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[2].arrz, -1*sims[3].arrz))
+        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
+        times = np.concatenate((sims[0].times, sims[1].times, sims[2].times, sims[3].times))
+        E = np.concatenate((sims[0].E, sims[1].E, sims[2].E, sims[3].E))
+        
+    elif sims[0].collision == 'mu+e-':
+        x = np.concatenate((sims[0].arrx, sims[1].arrx))
+        y = np.concatenate((sims[0].arry, sims[1].arry))
+        z = np.concatenate((sims[0].arrz, sims[1].arrz))
+        w = np.concatenate((sims[0].w, sims[1].w))
+        times = np.concatenate((sims[0].times, sims[1].times))
+        E = np.concatenate((sims[0].E, sims[1].E))
+    
+    elif sims[0].collision == 'mu+mu+':
+        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[0].arrx, -1*sims[1].arrx))
+        y = np.concatenate((sims[0].arry, sims[1].arry, sims[0].arry, sims[1].arry))
+        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[0].arrz, -1*sims[1].arrz))
+        w = np.concatenate((sims[0].w/2, sims[1].w/2, sims[0].w/2, sims[1].w/2))
+        times = np.concatenate((sims[0].times, sims[1].times, sims[0].times, sims[1].times))
+        E = np.concatenate((sims[0].E, sims[1].E, sims[0].E, sims[1].E))
+    
+    else:
+        raise ValueError("This type of collision has not been implemented! Accepted values are mu+mu+, mu+mu-, and m+e-.")
+    
+    return x, y, z, w, times, E
+    
+    
                 
-def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True):
+def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False):
     '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.'''
     
     if not ax:
@@ -432,48 +470,17 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     bs = np.linspace(-1* sims[0].zending, sims[0].zending, nbins)
     bs2 = np.linspace(-1*sims[0].rmax, sims[0].rmax, nbins)
         
-    if sims[0].collision == 'mu+mu-':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[2].arrx, -1*sims[3].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry, sims[2].arry, sims[3].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[2].arrz, -1*sims[3].arrz))
-        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
-        
-    elif sims[0].collision == 'mu+e-':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz))
-        w = np.concatenate((sims[0].w, sims[1].w))
-    
-    elif sims[0].collision == 'mu+mu+':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[0].arrx, -1*sims[1].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry, sims[0].arry, sims[1].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[0].arrz, -1*sims[1].arrz))
-        w = np.concatenate((sims[0].w, sims[1].w, sims[0].w/2, sims[1].w/2))
-    
-    else:
-        raise ValueError('This collision plotting has not been implemented yet!')
+    x, y, z, w, _, _ = get_data(sims)
     
     lbl4 = f"Experiment: {sims[0].paramname}"
     lbl3 = f"Collision: {acc_colls_dict[sims[0].collision]}" 
     lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
     lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events/yr"
     
-    if orientation == 'z-y':
-        ax.hist2d(z, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
-        plot_det(sims[0].Geometry, ax, xl  = xl, yl = yl)
-        
-    elif orientation == 'z-x':
-        ax.hist2d(z, x, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
-        plot_det(sims[0].Geometry, ax, xl = xl, yl = yl)
-            
-    elif orientation == 'x-y':
-        ax.hist2d(x, y, alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap)
-        plot_det(sims[0].Geometry, ax, orientation = 'x-y', xl = xl, yl = yl)
-        ax.set_xlim(-1* sims[0].rmax*10/12, sims[0].rmax *10/12)
-        ax.set_ylim(0, sims[0].rmax)
-
-    else:
-        raise ValueError('Only orientations are z-y, x-y, and z-x!')  
+    c_dict = {'z-y': [z, y], 'z-x': [z, x], 'x-y': [x, y]}
+    
+    ha = ax.hist2d(c_dict[orientation][0], c_dict[orientation][1], alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap, norm = LogNorm(vmin = vmin, vmax = vmax))
+    plot_det(sims[0].Geometry, ax, orientation = orientation, xl = xl, yl = yl)
         
     ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
     
@@ -483,25 +490,16 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', give_data = False, sa
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
             
-    if give_data:
-        return x,y,z,w
+    if h:
+        return ha
 
-def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_data = False, savefig = None, label = '', legend = False, title = True):
+def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, label = '', legend = False, title = True):
     '''Wrapper to plot a hist of the neutrino interaction times.'''
     
     if fs:
         plt.figure(figsize  = fs)
     
-    if len(sims) == 2:
-        times = np.concatenate((sims[0].times, sims[1].times))
-        w = np.concatenate((sims[0].w, sims[1].w))
-    
-    elif len(sims) == 4:
-        times = np.concatenate((sims[0].times, sims[1].times, sims[2].times, sims[3].times))
-        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
-        
-    else:
-        raise ValueError('Wrong number of sims. Something went wrong.')
+    _, _, _, w, times, _ = get_data(sims)
     
     times *= 1e9
     w *= 1e-9
@@ -520,25 +518,14 @@ def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, give_
     
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-            
-    if give_data:
-        return times, w
     
-def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_data = False, savefig = None, ylog = True, label='', legend = False):
+def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False):
     '''Wrapper to plot the phi distribution of neutrino events.'''
     
     if fs:
         plt.figure(figsize = fs)
     
-    if len(sims) == 2:
-        x = np.concatenate((sims[0].arrx, sims[1].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry))
-        w = np.concatenate((sims[0].w, sims[1].w))
-    
-    elif len(sims) == 4:
-        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[2].arrx, -1*sims[3].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry, sims[2].arry, sims[3].arry))
-        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
+    x, y, _, w, _, _ = get_data(sims)
     
     phi = np.arctan(x/y)
     
@@ -554,10 +541,24 @@ def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, give_da
     
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-            
-    if give_data:
-        return phi, w
-
+    
+def energies(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-'):
+    
+    if fs:
+        plt.figure(figsize = fs)
+    
+    _, _, _, w, _, E = get_data(sims)
+    
+    plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
+    plt.ylabel(r'$N_{events}/yr$')
+    plt.xlabel(r'$E_{\nu}$ (GeV)')
+    
+    if legend:
+        plt.legend(loc='best')
+    
+    if savefig:
+        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+    
 def get_timetable(sims):
     '''Prints the table of detailed time durations for the simulation.'''
     
@@ -584,6 +585,24 @@ def get_timetable(sims):
         
     print(table)
 
+def get_GENIE_flux(sims, filename, nbins = 100):
+    '''Creates a flux .data file for GENIE simulation of events'''
+    _, _, _, w, _, E = get_data(sims)
+    h = np.histogram(E, weights = w, bins = 100)
+    flux = h[0]
+    eg = h[1]
+    egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
+    
+    assert len(egs) == len(flux), "Lists must have the same length"
+    
+    fn = f"fluxes/{filename}.data"
+    
+    with open(fn, "w") as file:
+        for item1, item2 in zip(egs, flux):
+            file.write(f"{item1}\t{item2}\n")
+
+    print(f"Data has been written to {fn}.")
+    
 def get_face_counts(sims):
     '''Prints the table of detailed distribution of events in detector components.'''
     names = list(sims[0].face_dict.keys())
@@ -750,6 +769,9 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
             ax.scatter(MDET,MDET, color = cols[3])
             ax.scatter(MDET,MDET, color = cols[3])
             
+            ax.set_xlim(-1* 645*10/12, 645 *10/12)
+            ax.set_ylim(0, 645)
+            
             if xl:
                 ax.set_xlabel('x-coordinate (cm)')
             
@@ -792,6 +814,9 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
             
             if yl:
                 ax.set_ylabel("y-coordinate (cm)")
+            
+            ax.set_xlim(-564, 564)
+            ax.set_ylim(-645, 645)
 
     else:
         print("this geometry has not been implemented yet!")
