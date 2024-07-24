@@ -83,7 +83,7 @@ acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
 
 class SimulateDetector():
     '''Detector Simulation.'''
-    def __init__(self, coord_object, geom = 'det_v2', particle = 'nue', Lss = 0):
+    def __init__(self, coord_object, geom = 'det_v2', particle = None, Lss = 0):
         self.time = np.zeros(6)
         
         #Detector-related quantities
@@ -269,12 +269,10 @@ class SimulateDetector():
         self.cs = self.cs[self.mask]
         self.mutimes = self.mutimes[self.mask, np.newaxis]
         
-        self.times = self.distances / helpers.LIGHT_SPEED - self.mutimes
-        
         temporary = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
         temporary[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]        
         
-        self.events_position, self.part_face_counts = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
+        self.events_position, self.part_face_counts, self.cdistances = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
         
         self.time[5] = time.time()
         
@@ -316,6 +314,16 @@ class SimulateDetector():
             self.location[accepted_ix, count] = neigh.id
             self.densities[accepted_ix, count-1] = obj.density
 
+    def calculate_facecounts(self):
+        '''Gets the facecounts for each detector component in the simulation.'''
+        self.facecounts = {}
+        self.face_masks = {}
+        locs = self.location[:, :-1]
+    
+        for key, faces in self.face_dict.items():
+            self.face_masks[key] = np.isin(locs, faces)
+            self.facecounts[key] = np.sum(self.part_face_counts[self.face_masks[key]])
+    
     def run(self, show_components = 1, show_time = 1, collision = 'mu+mu+'):
         '''Runs the whole simulation. show_components for distribution within different detector components. show_time for time summary. collision is the type of collision.'''        
         
@@ -348,7 +356,7 @@ class SimulateDetector():
             self.update_params()
             self.run()
             self.part_face_counts *= 2/nsims
-            self.facecounts = calculate_facecounts(self.face_dict,self.location, self.part_face_counts)
+            self.calculate_facecounts()
             self.clear_mem(arg = 'first')
             self.collision = collision
             
@@ -356,7 +364,7 @@ class SimulateDetector():
             for i, part in enumerate(parts):
                 sims[i] = SimulateDetector(self.cc, self.Geometry, part, Lss=-1).run()
                 sims[i].part_face_counts *= 2/nsims
-                sims[i].facecounts = calculate_facecounts(sims[i].face_dict, sims[i].location, sims[i].part_face_counts)
+                sims[i].calculate_facecounts()
                 sims[i].clear_mem()
             
             self.clear_mem(arg = 'last')
@@ -375,7 +383,7 @@ class SimulateDetector():
             t1 = time.time() - t0
             self.tc = total_count
             
-            print(f'Simulation: {self.paramname} ({acc_colls_dict[collision]}) at L = {self.Lval/100:.2f} m with {self.detname} as a detector')
+            print(f'Simulation: {self.paramname} ({acc_colls_dict[collision]}) at L = {self.Lval/100:.2f} m with {self.detname}')
             print(f'Total Count: {total_count:.2e} events; took {t1:.3} s')
             
             if show_components:
@@ -399,6 +407,8 @@ class SimulateDetector():
             mask = (self.location[:,0] == -1)
             self.part_face_counts[mask,0] = 0
             self.w  = self.part_face_counts.flatten()
+            self.times = self.cdistances / helpers.LIGHT_SPEED - self.mutimes
+            self.cdistances = self.cdistances.flatten()
             
             self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
             
@@ -409,15 +419,21 @@ class SimulateDetector():
             self.arrx = self.events_position[:,:,0].flatten()[new_mask]
             self.arry = self.events_position[:,:,1].flatten()[new_mask]
             self.arrz = self.events_position[:,:,2].flatten()[new_mask]
+            self.cdistances = self.cdistances[new_mask]
+            self.distances = self.distances.flatten()[new_mask]
+            
+            for key in self.face_masks.keys():
+                self.face_masks[key] = self.face_masks[key].flatten()[new_mask]
             
             del self.events_position
         
+            self.face_masks['all'] = np.ones(np.sum(new_mask), dtype = 'bool')
             self.times = self.times.flatten()[new_mask]
             self.w    = self.w[new_mask]
             
             del new_mask, mask
         
-            deletables=['mutimes','momenta','location','distances','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos']
+            deletables=['momenta','location','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos']
         
             if arg != 'first':
                 deletables.append('cc')
@@ -427,7 +443,7 @@ class SimulateDetector():
             if hasattr(self, att):
                 delattr(self, att)
 
-def get_data(sims):
+def get_data(sims, sec = 'all'):
     '''Retrieving data from the sims object.'''
     
     if sims[0].collision == 'mu+mu-':
@@ -437,6 +453,7 @@ def get_data(sims):
         w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
         times = np.concatenate((sims[0].times, sims[1].times, sims[2].times, sims[3].times))
         E = np.concatenate((sims[0].E, sims[1].E, sims[2].E, sims[3].E))
+        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec], sims[2].face_masks[sec], sims[3].face_masks[sec]))
         
     elif sims[0].collision == 'mu+e-':
         x = np.concatenate((sims[0].arrx, sims[1].arrx))
@@ -445,6 +462,7 @@ def get_data(sims):
         w = np.concatenate((sims[0].w, sims[1].w))
         times = np.concatenate((sims[0].times, sims[1].times))
         E = np.concatenate((sims[0].E, sims[1].E))
+        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec]))
     
     elif sims[0].collision == 'mu+mu+':
         x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[0].arrx, -1*sims[1].arrx))
@@ -453,15 +471,16 @@ def get_data(sims):
         w = np.concatenate((sims[0].w/2, sims[1].w/2, sims[0].w/2, sims[1].w/2))
         times = np.concatenate((sims[0].times, sims[1].times, sims[0].times, sims[1].times))
         E = np.concatenate((sims[0].E, sims[1].E, sims[0].E, sims[1].E))
+        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec], sims[0].face_masks[sec], sims[1].face_masks[sec]))
     
     else:
         raise ValueError("This type of collision has not been implemented! Accepted values are mu+mu+, mu+mu-, and m+e-.")
     
-    return x, y, z, w, times, E
+    return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
     
     
                 
-def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False):
+def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False, sec = 'all'):
     '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.'''
     
     if not ax:
@@ -470,7 +489,7 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = 
     bs = np.linspace(-1* sims[0].zending, sims[0].zending, nbins)
     bs2 = np.linspace(-1*sims[0].rmax, sims[0].rmax, nbins)
         
-    x, y, z, w, _, _ = get_data(sims)
+    x, y, z, w, _, _ = get_data(sims, sec = sec)
     
     lbl4 = f"Experiment: {sims[0].paramname}"
     lbl3 = f"Collision: {acc_colls_dict[sims[0].collision]}" 
@@ -493,17 +512,19 @@ def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = 
     if h:
         return ha
 
-def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, label = '', legend = False, title = True):
+def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, label = None, legend = False, title = True, sec = 'all'):
     '''Wrapper to plot a hist of the neutrino interaction times.'''
     
     if fs:
         plt.figure(figsize  = fs)
     
-    _, _, _, w, times, _ = get_data(sims)
+    _, _, _, w, times, _ = get_data(sims, sec = sec)
     
     times *= 1e9
     w *= 1e-9
-    lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
+    
+    if not label:
+        label = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
     
     plt.xlabel('Time before collision (ns)')
     plt.ylabel(r'$N_{events}\ (1e9)$')
@@ -511,7 +532,7 @@ def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savef
     if title:
         plt.title('Event Timing (with respect to collision time)')
         
-    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = lbl)
+    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
     
     if legend:
         plt.legend(loc='best')
@@ -519,13 +540,13 @@ def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savef
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False):
+def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False, sec = 'all'):
     '''Wrapper to plot the phi distribution of neutrino events.'''
     
     if fs:
         plt.figure(figsize = fs)
     
-    x, y, _, w, _, _ = get_data(sims)
+    x, y, _, w, _, _ = get_data(sims, sec = sec)
     
     phi = np.arctan(x/y)
     
@@ -542,12 +563,12 @@ def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-def energies(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-'):
+def energies(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-', sec = 'all'):
     
     if fs:
         plt.figure(figsize = fs)
     
-    _, _, _, w, _, E = get_data(sims)
+    _, _, _, w, _, E = get_data(sims, sec = sec)
     
     plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
     plt.ylabel(r'$N_{events}/yr$')
@@ -558,6 +579,24 @@ def energies(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None,
     
     if savefig:
         plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+    
+def get_GENIE_flux(sims, filename, nbins = 100):
+    '''Creates a flux .data file for GENIE simulation of events'''
+    _, _, _, w, _, E = get_data(sims)
+    h = np.histogram(E, weights = w, bins = 100)
+    flux = h[0]
+    eg = h[1]
+    egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
+    
+    assert len(egs) == len(flux), "Lists must have the same length"
+    
+    fn = f"fluxes/{filename}.data"
+    
+    with open(fn, "w") as file:
+        for item1, item2 in zip(egs, flux):
+            file.write(f"{item1}\t{item2}\n")
+
+    print(f"Data has been written to {fn}.")    
     
 def get_timetable(sims):
     '''Prints the table of detailed time durations for the simulation.'''
@@ -584,24 +623,6 @@ def get_timetable(sims):
         table.add_row([name] + formatted_row)
         
     print(table)
-
-def get_GENIE_flux(sims, filename, nbins = 100):
-    '''Creates a flux .data file for GENIE simulation of events'''
-    _, _, _, w, _, E = get_data(sims)
-    h = np.histogram(E, weights = w, bins = 100)
-    flux = h[0]
-    eg = h[1]
-    egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
-    
-    assert len(egs) == len(flux), "Lists must have the same length"
-    
-    fn = f"fluxes/{filename}.data"
-    
-    with open(fn, "w") as file:
-        for item1, item2 in zip(egs, flux):
-            file.write(f"{item1}\t{item2}\n")
-
-    print(f"Data has been written to {fn}.")
     
 def get_face_counts(sims):
     '''Prints the table of detailed distribution of events in detector components.'''
@@ -628,6 +649,11 @@ def get_face_counts(sims):
     else:
         raise ValueError("Number of simulations not accepted; something went wrong.")
         
+    sims[0].ec = {}
+    
+    for i, key in enumerate(sims[0].face_dict.keys()):
+        sims[0].ec[key] = data[i][2]
+        
     table = PrettyTable()
     labels = ['Detector Parts']
     labels.extend(parts)
@@ -639,20 +665,6 @@ def get_face_counts(sims):
         table.add_row([name] + formatted_row)
 
     print(table)
-    
-
-@jit(nopython = False, forceobj=True)
-def calculate_facecounts(face_dict, location, part_face_counts):
-    '''Gets the facecounts for each detector component in the simulation.'''
-    facecounts = {}
-    locs = location[:, :-1]
-    
-    for key, faces in face_dict.items():
-        mask = np.isin(locs, faces)
-        facecounts[key] = np.sum(part_face_counts[mask])
-
-    return facecounts
-
 
 def get_probs_njit(dec_pos, momenta, distances, iterations,counts, cs, part_line_integrals, temporary):
     '''Gets the number of events (weights) of each interacting neutrino.'''
@@ -678,7 +690,7 @@ def get_probs_njit(dec_pos, momenta, distances, iterations,counts, cs, part_line
 
     info =  get_events_njit2(distances.shape, pweights, mid[:,np.newaxis], counts, dec_pos, normed_m, cumulative_distances, temporary)
 
-    return info[0], info[1]
+    return info[0], info[1], cumulative_distances
 
 
 @njit
