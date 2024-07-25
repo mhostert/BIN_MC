@@ -485,8 +485,6 @@ class SimulateDetector():
             sims[i].clear_mem()
             sims[i].w *= 2/nsims
             sims[i].calculate_facecounts()
-            sims[i].clear_mem(arg = 'face_dict')
-            
         
         self.sims = [sims[i] for i in range(nsims)]
         self.tc = np.sum([np.sum(sims[i].w) for i in range(nsims)])           
