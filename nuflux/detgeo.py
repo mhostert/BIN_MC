@@ -553,7 +553,7 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
 
 class SimulateDetector():
     '''Simulating the whole detector interactions.
-    Hierarchy is as follows: Initializing SimulateDetector calls SimulateDecays; running simulates many SimNeutrinos based on the collision type, which is a single-neutrino-species MC generation of events within a detector.'''
+    Hierarchy is as follows: Initializing SimulateDetector calls SimulateDecays; running simulates many SimNeutrinos based on the collision type, which is a single-neutrino-species MC generation of events within a detector, which are all saved in a list in the .sims attribute.'''
     
     def __init__(self, param = 'mutristan s', N_evals = 1e5, alr_loaded = False, dt = None):
         '''Initializes from muon decay sim.'''
