@@ -343,15 +343,24 @@ class SimNeutrinos():
     def calculate_facecounts(self):
         '''Gets the facecounts for each detector component in the simulation.'''
         self.facecounts = {}
-        self.face_masks = {}
-        locs = self.location[:, :-1]
     
-        for key, faces in self.face_dict.items():
-            self.face_masks[key] = np.isin(locs, faces)
-            self.facecounts[key] = np.sum(self.part_face_counts[self.face_masks[key]])
+        for key in self.face_dict.keys():
+            face_mask = self.get_face_masks(key)
+            self.facecounts[key] = np.sum(self.w[face_mask])
     
-    def run(self, show_components = 1, show_time = 1, collision = 'mu+mu+'):
-        '''Runs the whole simulation. show_components for distribution within different detector components. show_time for time summary. collision is the type of collision.'''        
+    def get_face_masks(self, sec):
+        '''Generate a masks for a specific detector component.'''
+
+        if sec == 'all':
+            mask = np.ones_like(self.w, dtype = bool)
+
+        else:
+            mask = np.isin(self.location, self.face_dict[sec])
+
+        return mask
+
+    def run(self):
+        '''Runs the simulation for a single neutrino species.'''        
         
         if (self.particle in muonic_neutrinos) | (self.particle in electronic_neutrinos):
             
@@ -389,13 +398,10 @@ class SimNeutrinos():
         ones = np.ones_like(self.times)
         self.mutimes = ones*self.mutimes
         self.mutimes = self.mutimes.flatten()[new_mask]
-            
-        for key in self.face_masks.keys():
-            self.face_masks[key] = self.face_masks[key].flatten()[new_mask]
+        self.location = self.location[:, :-1].flatten()[new_mask]
             
         del self.events_position
         
-        self.face_masks['all'] = np.ones(np.sum(new_mask), dtype = 'bool')
         self.times = self.times.flatten()[new_mask]
         self.w    = self.w[new_mask]
             
@@ -405,7 +411,7 @@ class SimNeutrinos():
             self.arrx = -1 * self.arrx
             self.arrz = -1 * self.arrz
         
-        deletables=['momenta','location','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos']
+        deletables=['momenta','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos', 'mutimes', 'distances', 't_values']
         
         for att in deletables:
             
@@ -608,16 +614,17 @@ class SimulateDetector():
         
         for i, part in enumerate(parts):
             sims[i] = SimNeutrinos(cc, geom, part, direc[i]).run()
-            sims[i].part_face_counts *= 2/nsims
-            sims[i].calculate_facecounts()
             sims[i].clear_mem()
+            sims[i].w *= 2/nsims
+            sims[i].calculate_facecounts()
+            
         
         self.sims = [sims[i] for i in range(nsims)]
         self.tc = np.sum([np.sum(sims[i].w) for i in range(nsims)])           
         t1 = time.time() - t0
         extra = ''
         
-        if t1 > 4*nsims/3 * self.N_evals / 1e5:
+        if t1 > 3*nsims/4 * self.N_evals / 1e5:
             extra = ' (numba pre-compilation needed)'
         
         self.name = ud.parameters[self.param]['name']
@@ -714,7 +721,7 @@ class SimulateDetector():
         w = np.concatenate([sim.w for sim in self.sims])
         times = np.concatenate([sim.times for sim in self.sims])
         E = np.concatenate([sim.E for sim in self.sims])
-        mask = np.concatenate([sim.face_masks[sec] for sim in self.sims])
+        mask = np.concatenate([sim.get_face_masks(sec) for sim in self.sims])
 
         return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
     
