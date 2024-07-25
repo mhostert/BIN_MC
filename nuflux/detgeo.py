@@ -19,6 +19,17 @@ import data
 import helpers
 import useful_data as ud
 
+
+# Relevant dictionaries for treating sim demands.
+muonic_neutrinos = ['numu', 'numubar']
+electronic_neutrinos = ['nue', 'nuebar']
+part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 'anti ν_μ'}
+acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
+acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
+colldict = {'mutristan s': ['mu+e-', 'mu+mu+'], 'mutristan l': ['mu+e-', 'mu+mu+'], 'mucol s1': ['mu+mu-'], 'mucol s2': ['mu+mu-'], 'mokhov': ['mu+mu-'], 'scd cern': ['mu+mu-']}
+colls_types_to_part = {'mu+e-': [['nue', 'left'], ['numubar', 'left']], 'mu+mu+': [['nue', 'left'], ['numubar', 'left'], ['nue', 'right'], ['numubar', 'right']], 'mu+mu-': [['nue', 'left'], ['numubar', 'left'], ['nuebar', 'right'], ['numu', 'right']]}
+direc = ['left', 'left', 'right', 'right']
+
 @profile
 def check_mem():
     '''For memory-consuming-checking processes.'''
@@ -50,7 +61,7 @@ def get_cs(E, part):
         
         return sigmanumubar(E)
 
-def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, dt = None):
+def SimulateDecays(param = 'mutristan s', N_evals = 1e5, alr_loaded=False, dt = None):
     '''Wrapper for data's Monte Carlo generation of muon decays. Alr_loaded if dt pre-generated, in which case you need to specify dt.'''
     
     t0 = time.time()
@@ -58,7 +69,23 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
     text = '(pre-generated dataset)'
     
     if not alr_loaded:
-        dt = list(data.get_particles(param, N_evals))
+        attempt = 0
+        max_attempts = 10
+        
+        while attempt < max_attempts:
+            
+            try:
+                dt = list(data.get_particles(param, N_evals))
+                print('Succesfully simulated decays:')
+                max_attempts = 0
+                
+            except Exception as e:
+                attempt += 1
+                print(f'Attempt {attempt} failed. Trying again; tell MH to improve his code.')
+        
+        if not dt:
+            raise RunTimeError('Max attempts reached. Wait a bit, tell MH to work on his code, and try again.')
+            
         text = ''
         
     if dt:
@@ -69,26 +96,19 @@ def SimulateDecays(param = 'mutristan_small', N_evals = 1e5, alr_loaded=False, d
     
     t1 = time.time() - t0
     
-    print(f'Simulation: {dt[7]} parameter set with {N_evals:.3e} evaluations {text}')
-    print(f'{dt[2]:.3e} MC generations; took {t1:.3} s')
+    print(f'{dt[7]} parameter set with {N_evals:.3e} evaluations {text}.')
+    print(f'{dt[2]:.3e} MC generations; took {t1:.3} s.')
         
     return sim
 
 
-muonic_neutrinos = ['numu', 'numubar']
-electronic_neutrinos = ['nue', 'nuebar']
-part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 'anti ν_μ'}
-acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
-acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
-
-class SimulateDetector():
+class SimNeutrinos():
     '''Detector Simulation.'''
-    def __init__(self, coord_object, geom = 'det_v2', particle = None, Lss = 0):
+    def __init__(self, coord_object, geom, particle = None, Lss = 0, direc = 'left'):
         self.time = np.zeros(6)
         
+        self.d = direc
         #Detector-related quantities
-        self.Geometry = geom
-        geom = importlib.import_module(self.Geometry)
         self.objects = geom.OBJECTS
         self.zbeginning = geom.zbeginning
         self.rmax = geom.rmax
@@ -106,30 +126,28 @@ class SimulateDetector():
         self.particle = particle
         
         #Decay-related quantities
-        self.cc = copy.deepcopy(coord_object)
-        self.cc.straight_segment_at_detector(self.zending, Lss = Lss)
-        self.mutimes = self.cc.times
-        self.w = self.cc.weights.reshape((self.cc.weights.shape[0],1)) # already normalized (does not include all decays!!!)
-        self.Nmu = self.cc.Nmu
-        self.sample_size = self.cc.sample_size
-        self.paramname = self.cc.name
+        self.mutimes = coord_object.times
+        self.w = coord_object.weights.reshape((coord_object.weights.shape[0],1)) # already normalized (does not include all decays!!!)
+        self.Nmu = coord_object.Nmu
+        self.sample_size = coord_object.sample_size
+        self.paramname = coord_object.name
         
-        if self.cc.L < 100:
+        if coord_object.L < 100:
             self.Lval = 0
             
         else:
-            self.Lval = self.cc.L
+            self.Lval = coord_object.L
         
         if self.particle in muonic_neutrinos:
-            self.momenta = self.cc.pnumu[:,1:]
-            self.E = self.cc.pnumu[:,0]
+            self.momenta = coord_object.pnumu[:,1:]
+            self.E = coord_object.pnumu[:,0]
             
         elif self.particle in electronic_neutrinos:
-            self.momenta = self.cc.pnue[:,1:]
-            self.E = self.cc.pnue[:,0]
+            self.momenta = coord_object.pnue[:,1:]
+            self.E = coord_object.pnue[:,0]
 
         #Detector-related quantities
-        self.initialize_quantities()
+        self.initialize_quantities(coord_object.p)
 
     def find_info(self): 
         '''Getting all intersection points of neutrinos with detector components.'''
@@ -255,10 +273,32 @@ class SimulateDetector():
         
         del self.densities 
     
-    #@profile
-    def get_event_positions(self):
-        '''Monte Carlo generation of event positions'''
+    def get_probs_njit(self):
+        '''Gets the number of events (weights) of each interacting neutrino.'''
+        #pweights these are probabilities, NOT WEIGHTS
+        self.t_values = self.t_values.reshape((self.t_values.shape[1], self.t_values.shape[2]))
+        temp2 = np.ones((self.distances.shape[0], self.iterations - 1)) #probs of non-interaction in each segment
+        temp2 = np.exp(-1 *self.cs[:, np.newaxis] * self.part_line_integrals)
+        mi = np.prod(temp2, axis = 1)
+
+        pweights = get_events_njit1(temp2, mi[:, np.newaxis])
+
+        max_index = np.argmax(pweights[:], axis=1)
+        mask = np.ones_like(pweights, dtype=bool)[:,0]
+        max_p = pweights[mask, max_index]
+        max_p = max_p[:, np.newaxis]
+
+        pweights = pweights / max_p
+        mid  = np.sum(pweights, axis = 1)
+        cumulative_distances = np.cumsum(self.distances, axis = 1)
+        normed_m = self.momenta / np.linalg.norm(self.momenta, axis = 1)[:, np.newaxis]
+        self.dec_pos = self.dec_pos[:,np.newaxis,:]
+        normed_m = normed_m[:,np.newaxis, :]
         
+        self.events_position, self.part_face_counts =  get_events_njit2(pweights, mid[:,np.newaxis], self.counts, self.dec_pos, normed_m, cumulative_distances, self.t_values)
+    
+    def get_event_positions(self):
+        '''Monte Carlo generation of event positions'''     
         #freeing memory
         self.momenta = self.momenta[self.mask]
         self.dec_pos = self.dec_pos[self.mask]
@@ -269,37 +309,23 @@ class SimulateDetector():
         self.cs = self.cs[self.mask]
         self.mutimes = self.mutimes[self.mask, np.newaxis]
         
-        temporary = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
-        temporary[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]        
+        self.t_values = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
+        self.t_values[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]        
         
-        self.events_position, self.part_face_counts, self.cdistances = get_probs_njit(self.dec_pos, self.momenta, self.distances, self.iterations, self.counts, self.cs, self.part_line_integrals, temporary)
+        self.get_probs_njit()
         
         self.time[5] = time.time()
         
         return
-
-    ##@profile
-    def initialize_quantities(self):
+    
+    def initialize_quantities(self, p):
         '''Initializes detector-related quantities.'''
         self.intersection_points = np.full((self.sample_size, self.iterations, 3), 1e4) #1e4 is arbitrary
         self.densities = np.zeros((self.sample_size, self.iterations - 1))
         self.densities[:,0] = ud.EARTH_DENSITY
         self.location = np.full((self.sample_size, self.iterations), -1) #starting at initials
-        self.intersection_points[:,0,:] = self.cc.p
+        self.intersection_points[:,0,:] = p
         self.distances = np.zeros((self.sample_size, self.iterations - 1))
-
-
-    def update_params(self):
-        '''In case one needs to run another simulation but cannot re-initialize.'''
-        
-        if self.particle in muonic_neutrinos:
-            self.momenta = self.cc.pnumu[:,1:]
-            self.E = self.cc.pnumu[:,0]
-
-        elif self.particle in electronic_neutrinos:
-            self.momenta = self.cc.pnue[:,1:]
-            self.E = self.cc.pnue[:,0]
-
     
     def update_intersections(self, obj, count, mask):
         '''For a single object, with particles on it, finds their next component, iteratively on each neighbor, at a specific step of the sim.'''
@@ -327,8 +353,6 @@ class SimulateDetector():
     def run(self, show_components = 1, show_time = 1, collision = 'mu+mu+'):
         '''Runs the whole simulation. show_components for distribution within different detector components. show_time for time summary. collision is the type of collision.'''        
         
-        colls_types_to_part = {'mu+e-': ['numubar', 'nue'], 'mu+mu+': ['numubar', 'nue'], 'mu+mu-':['numubar', 'nue', 'numu', 'nuebar']}
-        
         if (self.particle in muonic_neutrinos) | (self.particle in electronic_neutrinos):
             
             self.time[0] = time.time()
@@ -339,358 +363,54 @@ class SimulateDetector():
        
             return self
         
-        elif collision in acc_colls_types:
-            
-            t0 = time.time()
-            
-            #have to run both (or four) sims.
-            sim2 = None
-            sim3 = None
-            sim4 = None
-            sims = [sim2, sim3, sim4]
-            parts = colls_types_to_part[collision]
-            nsims = len(parts)
-            
-            #first is actual instance of the simulation.
-            self.particle = parts.pop(0)
-            self.update_params()
-            self.run()
-            self.part_face_counts *= 2/nsims
-            self.calculate_facecounts()
-            self.clear_mem(arg = 'first')
-            self.collision = collision
-            
-            #others are distinct simulations.
-            for i, part in enumerate(parts):
-                sims[i] = SimulateDetector(self.cc, self.Geometry, part, Lss=-1).run()
-                sims[i].part_face_counts *= 2/nsims
-                sims[i].calculate_facecounts()
-                sims[i].clear_mem()
-            
-            self.clear_mem(arg = 'last')
-            
-            if nsims == 2:
-                sims = [self, sims[0]]
-                total_count = np.sum(sims[0].w) + np.sum(sims[1].w)
-        
-            elif nsims == 4:
-                sims = [self, sims[0], sims[1], sims[2]]
-                total_count = np.sum(sims[0].w) + np.sum(sims[1].w) + np.sum(sims[2].w) + np.sum(sims[3].w)
-            
-            else:
-                raise ValueError("Something went wrong with the number of simulatioms.")
-            
-            t1 = time.time() - t0
-            self.tc = total_count
-            
-            print(f'Simulation: {self.paramname} ({acc_colls_dict[collision]}) at L = {self.Lval/100:.2f} m with {self.detname}')
-            print(f'Total Count: {total_count:.2e} events; took {t1:.3} s')
-            
-            if show_components:
-                get_face_counts(sims)
-            
-            if show_time:
-                get_timetable(sims)
-            
-            return sims
-        
         else:
             raise ValueError("No particle of that name included in this simulation!")
     
-    def clear_mem(self, arg = 'another'):
+    def clear_mem(self):
         '''Freeing up memory.'''
         
-        if arg == 'last':
-            deletables = ['cc']
-        
-        else:
-            mask = (self.location[:,0] == -1)
-            self.part_face_counts[mask,0] = 0
-            self.w  = self.part_face_counts.flatten()
-            self.times = self.cdistances / helpers.LIGHT_SPEED - self.mutimes
-            self.cdistances = self.cdistances.flatten()
+        mask = (self.location[:,0] == -1)
+        self.part_face_counts[mask,0] = 0
+        self.w  = self.part_face_counts.flatten()
+        self.times = self.t_values / helpers.LIGHT_SPEED - self.mutimes
+        self.t_values = self.t_values.flatten()
             
-            self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
+        self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
             
-            del self.part_face_counts
+        del self.part_face_counts
         
-            new_mask = (self.w > 0)
-            self.E = self.E.flatten()[new_mask]
-            self.arrx = self.events_position[:,:,0].flatten()[new_mask]
-            self.arry = self.events_position[:,:,1].flatten()[new_mask]
-            self.arrz = self.events_position[:,:,2].flatten()[new_mask]
-            self.cdistances = self.cdistances[new_mask]
-            self.distances = self.distances.flatten()[new_mask]
+        new_mask = (self.w > 0)
+        self.E = self.E.flatten()[new_mask]
+        self.arrx = self.events_position[:,:,0].flatten()[new_mask]
+        self.arry = self.events_position[:,:,1].flatten()[new_mask]
+        self.arrz = self.events_position[:,:,2].flatten()[new_mask]
+        self.t_values = self.t_values[new_mask]
+        self.distances = self.distances.flatten()[new_mask]
+        ones = np.ones_like(self.times)
+        self.mutimes = ones*self.mutimes
+        self.mutimes = self.mutimes.flatten()[new_mask]
             
-            for key in self.face_masks.keys():
-                self.face_masks[key] = self.face_masks[key].flatten()[new_mask]
+        for key in self.face_masks.keys():
+            self.face_masks[key] = self.face_masks[key].flatten()[new_mask]
             
-            del self.events_position
+        del self.events_position
         
-            self.face_masks['all'] = np.ones(np.sum(new_mask), dtype = 'bool')
-            self.times = self.times.flatten()[new_mask]
-            self.w    = self.w[new_mask]
+        self.face_masks['all'] = np.ones(np.sum(new_mask), dtype = 'bool')
+        self.times = self.times.flatten()[new_mask]
+        self.w    = self.w[new_mask]
             
-            del new_mask, mask
+        del new_mask, mask
         
-            deletables=['momenta','location','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos']
+        if self.d == 'right':
+            self.arrx = -1 * self.arrx
+            self.arrz = -1 * self.arrz
         
-            if arg != 'first':
-                deletables.append('cc')
+        deletables=['momenta','location','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos']
         
         for att in deletables:
             
             if hasattr(self, att):
                 delattr(self, att)
-
-def get_data(sims, sec = 'all'):
-    '''Retrieving data from the sims object.'''
-    
-    if sims[0].collision == 'mu+mu-':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[2].arrx, -1*sims[3].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry, sims[2].arry, sims[3].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[2].arrz, -1*sims[3].arrz))
-        w = np.concatenate((sims[0].w, sims[1].w, sims[2].w, sims[3].w))
-        times = np.concatenate((sims[0].times, sims[1].times, sims[2].times, sims[3].times))
-        E = np.concatenate((sims[0].E, sims[1].E, sims[2].E, sims[3].E))
-        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec], sims[2].face_masks[sec], sims[3].face_masks[sec]))
-        
-    elif sims[0].collision == 'mu+e-':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz))
-        w = np.concatenate((sims[0].w, sims[1].w))
-        times = np.concatenate((sims[0].times, sims[1].times))
-        E = np.concatenate((sims[0].E, sims[1].E))
-        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec]))
-    
-    elif sims[0].collision == 'mu+mu+':
-        x = np.concatenate((sims[0].arrx, sims[1].arrx, -1*sims[0].arrx, -1*sims[1].arrx))
-        y = np.concatenate((sims[0].arry, sims[1].arry, sims[0].arry, sims[1].arry))
-        z = np.concatenate((sims[0].arrz, sims[1].arrz, -1*sims[0].arrz, -1*sims[1].arrz))
-        w = np.concatenate((sims[0].w/2, sims[1].w/2, sims[0].w/2, sims[1].w/2))
-        times = np.concatenate((sims[0].times, sims[1].times, sims[0].times, sims[1].times))
-        E = np.concatenate((sims[0].E, sims[1].E, sims[0].E, sims[1].E))
-        mask = np.concatenate((sims[0].face_masks[sec], sims[1].face_masks[sec], sims[0].face_masks[sec], sims[1].face_masks[sec]))
-    
-    else:
-        raise ValueError("This type of collision has not been implemented! Accepted values are mu+mu+, mu+mu-, and m+e-.")
-    
-    return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
-    
-    
-                
-def plot(sims, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False, sec = 'all'):
-    '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.'''
-    
-    if not ax:
-        fig, ax = plt.subplots(figsize = fs)
-        
-    bs = np.linspace(-1* sims[0].zending, sims[0].zending, nbins)
-    bs2 = np.linspace(-1*sims[0].rmax, sims[0].rmax, nbins)
-        
-    x, y, z, w, _, _ = get_data(sims, sec = sec)
-    
-    lbl4 = f"Experiment: {sims[0].paramname}"
-    lbl3 = f"Collision: {acc_colls_dict[sims[0].collision]}" 
-    lbl = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
-    lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events/yr"
-    
-    c_dict = {'z-y': [z, y], 'z-x': [z, x], 'x-y': [x, y]}
-    
-    ha = ax.hist2d(c_dict[orientation][0], c_dict[orientation][1], alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap, norm = LogNorm(vmin = vmin, vmax = vmax))
-    plot_det(sims[0].Geometry, ax, orientation = orientation, xl = xl, yl = yl)
-        
-    ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
-    
-    if title:
-        ax.set_title(f'Event Distribution: {orientation}')
-    
-    if savefig:
-        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-            
-    if h:
-        return ha
-
-def event_timing(sims, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, label = None, legend = False, title = True, sec = 'all'):
-    '''Wrapper to plot a hist of the neutrino interaction times.'''
-    
-    if fs:
-        plt.figure(figsize  = fs)
-    
-    _, _, _, w, times, _ = get_data(sims, sec = sec)
-    
-    times *= 1e9
-    w *= 1e-9
-    
-    if not label:
-        label = r"$L_{ss} = $" + f"{sims[0].Lval/100:.0f} m"
-    
-    plt.xlabel('Time before collision (ns)')
-    plt.ylabel(r'$N_{events}\ (1e9)$')
-    
-    if title:
-        plt.title('Event Timing (with respect to collision time)')
-        
-    plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
-    
-    if legend:
-        plt.legend(loc='best')
-    
-    if savefig:
-        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-    
-def phi_distribution(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False, sec = 'all'):
-    '''Wrapper to plot the phi distribution of neutrino events.'''
-    
-    if fs:
-        plt.figure(figsize = fs)
-    
-    x, y, _, w, _, _ = get_data(sims, sec = sec)
-    
-    phi = np.arctan(x/y)
-    
-    plt.hist(phi, weights = w, histtype = histtype, bins = nbins, label = label)
-    plt.ylabel(r'$N_{events}/yr$')
-    plt.xlabel(r'$\phi$ Distribution (rad)')
-    
-    if legend:
-        plt.legend(loc='best')
-        
-    if ylog:
-        plt.yscale('log')
-    
-    if savefig:
-        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-    
-def energies(sims, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-', sec = 'all'):
-    
-    if fs:
-        plt.figure(figsize = fs)
-    
-    _, _, _, w, _, E = get_data(sims, sec = sec)
-    
-    plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
-    plt.ylabel(r'$N_{events}/yr$')
-    plt.xlabel(r'$E_{\nu}$ (GeV)')
-    
-    if legend:
-        plt.legend(loc='best')
-    
-    if savefig:
-        plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
-    
-def get_GENIE_flux(sims, filename, nbins = 100):
-    '''Creates a flux .data file for GENIE simulation of events'''
-    _, _, _, w, _, E = get_data(sims)
-    h = np.histogram(E, weights = w, bins = 100)
-    flux = h[0]
-    eg = h[1]
-    egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
-    
-    assert len(egs) == len(flux), "Lists must have the same length"
-    
-    fn = f"fluxes/{filename}.data"
-    
-    with open(fn, "w") as file:
-        for item1, item2 in zip(egs, flux):
-            file.write(f"{item1}\t{item2}\n")
-
-    print(f"Data has been written to {fn}.")    
-    
-def get_timetable(sims):
-    '''Prints the table of detailed time durations for the simulation.'''
-    
-    if len(sims) == 2:
-        cols = ['ν_e time', 'anti ν_μ time']
-        data = [[sims[1].time[i+1] - sims[1].time[i], sims[0].time[i+1] - sims[0].time[i], sims[0].time[i+1] - sims[0].time[i] + sims[1].time[i+1] - sims[1].time[i]] for i in range(0, len(sims[0].time)-1)]
-        data.append([sims[1].time[-1] - sims[1].time[0], sims[0].time[-1] - sims[0].time[0], sims[1].time[-1] - sims[0].time[0]])
-
-    elif len(sims) == 4:
-        cols = ['ν_e time', 'anti ν_e time', 'ν_μ time', 'anti ν_μ time']
-        data = [[sims[1].time[i+1] - sims[1].time[i], sims[3].time[i+1] - sims[3].time[i], sims[2].time[i+1] - sims[2].time[i], sims[0].time[i+1] - sims[0].time[i], sims[0].time[i+1] - sims[0].time[i] + sims[1].time[i+1] - sims[1].time[i] + sims[2].time[i+1] - sims[2].time[i] + sims[3].time[i+1] - sims[3].time[i]] for i in range(0, len(sims[0].time)-1)]
-        data.append([sims[1].time[-1] - sims[1].time[0], sims[3].time[-1] - sims[3].time[0],sims[2].time[-1] - sims[2].time[0], sims[0].time[-1] - sims[0].time[0], sims[3].time[-1] - sims[0].time[0]])
-    
-    table = PrettyTable()
-    names = ['init','init obj','other obj','probs','events', 'totals']
-    labels = ['Simulation Time']
-    labels.extend(cols)
-    labels.append('TOTAL')
-    table.field_names = labels
-    
-    for name, row in zip(names, data):
-        formatted_row = [f'{x:.3e}' for i,x in enumerate(row)]
-        table.add_row([name] + formatted_row)
-        
-    print(table)
-    
-def get_face_counts(sims):
-    '''Prints the table of detailed distribution of events in detector components.'''
-    names = list(sims[0].face_dict.keys())
-    names.append('TOTAL')
-    total_count = 0
-    totals = []
-    
-    for sim in sims:
-        totals.append(sum(list(sim.facecounts.values())))
-        
-    total_count = sum(totals)
-    
-    if len(sims) == 4:
-        data = [[sims[1].facecounts[key], sims[3].facecounts[key], sims[2].facecounts[key], sims[0].facecounts[key], sims[0].facecounts[key] + sims[1].facecounts[key] + sims[2].facecounts[key] + sims[3].facecounts[key]] for key in sims[0].face_dict.keys()]
-        data.append([totals[1], totals[3], totals[2], totals[0], total_count])
-        parts = ['ν_e events','anti ν_e events', 'ν_μ events','anti ν_μ events']
-        
-    elif len(sims) == 2:
-        data = [[sims[1].facecounts[key], sims[0].facecounts[key], sims[0].facecounts[key] + sims[1].facecounts[key]] for key in sims[0].face_dict.keys()]
-        data.append([totals[1], totals[0], total_count])
-        parts = ['ν_e events', 'ν_μ events']
-        
-    else:
-        raise ValueError("Number of simulations not accepted; something went wrong.")
-        
-    sims[0].ec = {}
-    
-    for i, key in enumerate(sims[0].face_dict.keys()):
-        sims[0].ec[key] = data[i][2]
-        
-    table = PrettyTable()
-    labels = ['Detector Parts']
-    labels.extend(parts)
-    labels.append('Total Events')
-    table.field_names = labels
-        
-    for name, row in zip(names, data):
-        formatted_row = [f"{x:.3e}" for x in row]
-        table.add_row([name] + formatted_row)
-
-    print(table)
-
-def get_probs_njit(dec_pos, momenta, distances, iterations,counts, cs, part_line_integrals, temporary):
-    '''Gets the number of events (weights) of each interacting neutrino.'''
-    #pweights these are probabilities, NOT WEIGHTS
-    temporary = temporary.reshape((temporary.shape[1], temporary.shape[2]))
-    temp2 = np.ones((distances.shape[0], iterations - 1)) #probs of non-interaction in each segment
-    temp2 = np.exp(-1 *cs[:, np.newaxis] * part_line_integrals)
-    mi = np.prod(temp2, axis = 1)
-    
-    pweights = get_events_njit1(temp2, mi[:, np.newaxis])
-    
-    max_index = np.argmax(pweights[:], axis=1)
-    mask = np.ones_like(pweights, dtype=bool)[:,0]
-    max_p = pweights[mask, max_index]
-    max_p = max_p[:, np.newaxis]
-
-    pweights = pweights / max_p
-    mid  = np.sum(pweights, axis = 1)
-    cumulative_distances = np.cumsum(distances, axis = 1)
-    normed_m = momenta / np.linalg.norm(momenta, axis = 1)[:, np.newaxis]
-    dec_pos = dec_pos[:,np.newaxis,:]
-    normed_m = normed_m[:,np.newaxis, :]
-
-    info =  get_events_njit2(distances.shape, pweights, mid[:,np.newaxis], counts, dec_pos, normed_m, cumulative_distances, temporary)
-
-    return info[0], info[1], cumulative_distances
 
 
 @njit
@@ -700,16 +420,14 @@ def get_events_njit1(temp2, mi):
     
     return res
 
-
 @njit
-def get_events_njit2(shape, pweights, mid, counts, dec_pos, normed_m, cumulative_distances, temporary):
+def get_events_njit2(pweights, mid, counts, dec_pos, normed_m, cumulative_distances, t_values):
     '''Gets weight of each event generated by all interacting neutrinos.'''
-    # shape is (:, 25); pweights is (:, 25); mid is (:,1); mask is (:,); counts is (:,1); dec_pos is (:, 1, 3); normed_m is [:, 1, 3]; cumulative_distances is [:,25]; temporary is [:, 25]
+    # pweights is (:, 25); mid is (:,1); mask is (:,); counts is (:,1); dec_pos is (:, 1, 3); normed_m is [:, 1, 3]; cumulative_distances is [:,25]; t_values is [:, 25]
     pweights = pweights / mid #good multinomial probs
-    temporary[:,1:] += cumulative_distances[:,:-1]
+    t_values[:,1:] += cumulative_distances[:,:-1]
     part_face_counts = counts * pweights # these are the face counts (expected)
-    events_position = dec_pos + temporary[:,:,np.newaxis] * normed_m
-    
+    events_position = dec_pos + t_values[:,:,np.newaxis] * normed_m
     return events_position, part_face_counts
 
 
@@ -832,3 +550,337 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
 
     else:
         print("this geometry has not been implemented yet!")
+
+class SimulateDetector():
+    '''Simulating the whole detector interactions.
+    Hierarchy is as follows: Initializing SimulateDetector calls SimulateDecays; running simulates many SimNeutrinos based on the collision type, which is a single-neutrino-species MC generation of events within a detector.'''
+    
+    def __init__(self, param = 'mutristan s', N_evals = 1e5, alr_loaded = False, dt = None):
+        '''Initializes from muon decay sim.'''
+        
+        if param not in ud.parameters.keys():
+            raise ValueError('Not a valid parameter set. Options are: mutristan s; mutristan l; mucol s1; mucol s2; scd cern; mokhov.')
+            
+        self.param = param
+        self.N_evals = N_evals
+        self.cco = SimulateDecays(param = param, N_evals = N_evals, alr_loaded = alr_loaded, dt = dt)
+    
+    def run(self, Lss = 0, geom = 'det_v2', show_components = 1, show_time = 1, collision = None):
+        '''Runs the whole simulation, based on a storage ring geometry, detector geometry, and collision. 
+        
+        Args:
+            show_components (bool): for distribution within different detector components. 
+            show_time (bool): for time summary.
+            collision (str): the type of collision. μTRISTAN experiments are the only ones to accept either mu+e- or mu+mu+; the others are all mu+mu-, by default.
+            geom (str): the detector version. Latest is det_v2; uniform block is block_test; zero_density_test is exactly that; and det_v1 is simpler.
+            Lss (float): Length of the straight segment upon which the IR detector is centered.'''  
+        
+        t0 = time.time()
+        
+        if not collision:
+            
+            if (self.param == 'mutristan s') | (self.param == 'mutristan l'):
+                self.collision = 'mu+mu+'
+            
+            else:
+                self.collision = 'mu+mu-'
+        
+        elif collision not in colldict[self.param]:
+            raise ValueError('Not a valid collison for this storage ring configuration. μTRISTAN experiments are the only ones to accept either mu+e- or mu+mu+; the others are all mu+mu-.')
+        
+        self.collision = collision
+        self.L = Lss
+        self.ntimes = 6 #should be constant, except during debugging/improvements.
+        sim1 = None
+        sim2 = None
+        sim3 = None
+        sim4 = None
+        sims = [sim1,sim2,sim3,sim4]
+        parts = [part[0] for part in colls_types_to_part[collision]]
+        nsims = len(parts)
+        self.Geometry = geom
+        geom = importlib.import_module(self.Geometry)
+        self.comps = geom.facedict.keys()
+        self.zending = geom.zending
+        self.rmax = geom.rmax
+        cc = copy.deepcopy(self.cco)
+        cc.straight_segment_at_detector(geom.zending, Lss = Lss)
+        
+        for i, part in enumerate(parts):
+            sims[i] = SimNeutrinos(cc, geom, part, direc[i]).run()
+            sims[i].part_face_counts *= 2/nsims
+            sims[i].calculate_facecounts()
+            sims[i].clear_mem()
+        
+        self.sims = [sims[i] for i in range(nsims)]
+        self.tc = np.sum([np.sum(sims[i].w) for i in range(nsims)])           
+        t1 = time.time() - t0
+        extra = ''
+        
+        if t1 > 4*nsims/3 * self.N_evals / 1e5:
+            extra = ' (numba pre-compilation needed)'
+        
+        self.name = ud.parameters[self.param]['name']
+        print(f'Successfully simulated neutrino event rates within {geom.name}:')
+        print(f'{self.name} ({acc_colls_dict[self.collision]}) at L = {self.L/100:.2f} m.')
+        print(f'Total count: {self.tc:.2e} events; took {t1:.3} s{extra}.')
+            
+        if show_components:
+            self.get_face_counts()
+            
+        if show_time:
+            self.get_timetable()   
+            
+    
+    def get_timetable(self):
+        '''Prints the table of detailed time durations for the simulation.'''
+        
+        cols = [part_names[part[0]] + ' time ('  + part[1] + ')' for part in colls_types_to_part[self.collision]]
+        data = []
+        
+        for i in range(0, self.ntimes - 1):
+            row = [sim.time[i+1] - sim.time[i] for sim in self.sims]
+            row.append(sum(row))
+            data.append(row)
+        
+        trow = [sim.time[-1] - sim.time[0] for sim in self.sims]
+        trow.append(self.sims[-1].time[-1] - self.sims[0].time[0])
+        data.append(trow)
+
+        table = PrettyTable()
+        names = ['init','init obj','other obj','probs','events', 'totals']
+        labels = ['Simulation Time']
+        labels.extend(cols)
+        labels.append('TOTAL')
+        table.field_names = labels
+        
+        for name, row in zip(names, data):
+            formatted_row = [f'{x:.3e}' for i,x in enumerate(row)]
+            table.add_row([name] + formatted_row)
+
+        print('\nTime Distribution:\n',table)
+
+    def get_face_counts(self):
+        '''Prints the table of detailed distribution of events in detector components.'''
+        
+        names = list(self.comps)
+        names.append('TOTAL')
+        total_count = 0
+        totals = []
+
+        for sim in self.sims:
+            totals.append(sum(list(sim.facecounts.values())))
+
+        total_count = sum(totals)
+        
+        data = []
+        
+        for key in self.comps:
+            row = [sim.facecounts[key] for sim in self.sims]
+            row.append(np.sum(row))
+            data.append(row)
+        
+        trow = [totals[i] for i in range(len(self.sims))]
+        trow.append(total_count)
+        data.append(trow)
+        
+        parts = [part_names[part[0]] + ' events ('  + part[1] + ')' for part in colls_types_to_part[self.collision]]
+
+        table = PrettyTable()
+        labels = ['Detector Parts']
+        labels.extend(parts)
+        labels.append('Total Events')
+        table.field_names = labels
+
+        for name, row in zip(names, data):
+            formatted_row = [f"{x:.3e}" for x in row]
+            table.add_row([name] + formatted_row)
+
+        print('\nEvent Distribution:\n',table)
+        
+    
+    def get_data(self, sec = 'all'):
+        '''Retrieving data from the sims object.
+        
+        Args: 
+            sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels. Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid, or nozzles.'''
+        
+        if (sec != 'all') & (sec not in self.comps):
+            print('This is not an implemented detector component. Choices are ')
+            
+        x = np.concatenate([sim.arrx for sim in self.sims])
+        y = np.concatenate([sim.arry for sim in self.sims])
+        z = np.concatenate([sim.arrz for sim in self.sims])
+        w = np.concatenate([sim.w for sim in self.sims])
+        times = np.concatenate([sim.times for sim in self.sims])
+        E = np.concatenate([sim.E for sim in self.sims])
+        mask = np.concatenate([sim.face_masks[sec] for sim in self.sims])
+
+        return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
+    
+    
+                
+    def plot(self, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False, sec = 'all', colorbar = True):
+        '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.
+        
+        Args:
+            orientation (str): coordinate representation for the plot. Can be z-y (default), z-x, or x-y.
+            savefig (str): name of file to save plot to.
+            fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
+            ax (plt.axes obj): if one wants to plot on a specific ax (i.e., subplot), specify.
+            title (bool): if one wants to display the pre-generated title.
+            xl/yl (bool): to display the x-label and y-label.
+            vmin/vmax (float): to change color displays.
+            h (bool): to return the plot obj.
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+
+        if not ax:
+            fig, ax = plt.subplots(figsize = fs)
+
+        bs = np.linspace(-1* self.zending, self.zending, nbins)
+        bs2 = np.linspace(-1*self.rmax, self.rmax, nbins)
+
+        x, y, z, w, _, _ = self.get_data(sec = sec)
+
+        lbl4 = f"Experiment: {self.name}"
+        lbl3 = f"Collision: {acc_colls_dict[self.collision]}" 
+        lbl = r"$L_{ss} = $" + f"{self.L/100:.0f} m"
+        lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
+
+        c_dict = {'z-y': [z, y], 'z-x': [z, x], 'x-y': [x, y]}
+
+        ha = ax.hist2d(c_dict[orientation][0], c_dict[orientation][1], alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap, norm = LogNorm(vmin = vmin, vmax = vmax))
+        plot_det(self.Geometry, ax, orientation = orientation, xl = xl, yl = yl)
+
+        ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
+
+        if title:
+            ax.set_title(f'Event Distribution: {orientation}')
+
+        if savefig:
+            plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+        
+        if colorbar:
+            fig.colorbar(ha[3], fraction = 0.025, pad = 0.04, aspect = 30)
+            
+        if h:
+            return ha
+
+    def event_timing(self, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, legend = False, title = True, sec = 'all'):
+        '''Wrapper to plot neutrino interaction times.
+        
+        Args:
+            savefig (str): name of file to save plot to.
+            fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
+            title (bool): if one wants to display the pre-generated title.
+            legend (bool): to display the pre-generated legend.
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+
+        if fs:
+            plt.figure(figsize  = fs)
+
+        _, _, _, w, times, _ = self.get_data(sec = sec)
+
+        label = f'{sec}; ' + r'$N_{events}$' + f': {np.sum(w):.3e}'
+
+        if sec == 'all':
+            label = r"$L_{ss} = $" + f"{self.L/100:.0f} m"
+
+        times *= 1e9
+
+        plt.xlabel('Time before collision (ns)')
+        plt.ylabel(r'$N_{events}$')
+
+        if title:
+            plt.title(f'Event Timing (wrt bunch crossing); ({self.name} at L = {self.L/100:.2f})')
+
+        plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
+
+        if legend:
+            plt.legend(loc='best')
+
+        plt.yscale('log')
+
+        if savefig:
+            plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+    
+    def phi_distribution(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False, sec = 'all'):
+        '''Wrapper to plot the phi distribution of neutrino events.
+        
+        Args:
+            savefig (str): name of file to save plot to.
+            histtype (str): plt histtype options.
+            fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
+            legend (bool): to display the legend.
+            ylog (bool): to set the y-scale as log.
+            label (str): Label of the plot.
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+
+        if fs:
+            plt.figure(figsize = fs)
+
+        x, y, _, w, _, _ = self.get_data(sec = sec)
+
+        phi = np.arctan(x/y)
+
+        plt.hist(phi, weights = w, histtype = histtype, bins = nbins, label = label)
+        plt.ylabel(r'$N_{events}/yr$')
+        plt.xlabel(r'$\phi$ Distribution (rad)')
+
+        if legend:
+            plt.legend(loc='best')
+
+        if ylog:
+            plt.yscale('log')
+
+        if savefig:
+            plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+    
+    def energies(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-', sec = 'all'):
+        '''Wrapper to plot energy flux of particles.
+        
+        Args:
+            savefig (str): name of file to save plot to.
+            histtype (str): plt histtype options.
+            fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
+            legend (bool): to display the legend.
+            linestyle (str): plt linestyle options.
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+        
+        if fs:
+            plt.figure(figsize = fs)
+
+        _, _, _, w, _, E = self.get_data(sec = sec)
+
+        plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
+        plt.ylabel(r'$N_{events}/yr$')
+        plt.xlabel(r'$E_{\nu}$ (GeV)')
+
+        if legend:
+            plt.legend(loc='best')
+
+        if savefig:
+            plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
+    
+    def get_GENIE_flux(self, filename, nbins = 100):
+        '''Creates a flux .data file for GENIE simulation of events.
+        
+        Args:
+            filename (str): name of file to be saved in the fluxes/ folder.
+            nbins (int): number of bins for the histogram.'''
+        _, _, _, w, _, E = self.get_data()
+        h = np.histogram(E, weights = w, bins = 100)
+        flux = h[0]
+        eg = h[1]
+        egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
+
+        assert len(egs) == len(flux), "Lists must have the same length"
+
+        fn = f"fluxes/{filename}.data"
+
+        with open(fn, "w") as file:
+            for item1, item2 in zip(egs, flux):
+                file.write(f"{item1}\t{item2}\n")
+
+        print(f"Data has been written to {fn}.")
+        

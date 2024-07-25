@@ -47,6 +47,6 @@ mutristan_large = {"name": "μTRISTAN (L)", "beam_p0": 3e3, "pmax": 9e3, "pmin":
 mucol_s1 = {"name": "MuCoL (s1)", "beam_p0": 2.5e3, "pmax": 7.5e3, "pmin":0, "C": 4.5e5, "beam_dpop": 1e-3, "beam_dtheta": 3.52e-4,"circular": False, "Nmu": 4.9e9  * 4.5e3* 1.2e7}
 mucol_s2 = {"name": "MuCoL (s2)", "beam_p0": 5e3, "pmax": 15e3, "pmin":0, "C": 10e5, "beam_dpop": 1e-3, "beam_dtheta": 5.88e-4,"circular": False, "Nmu": 1.8e9 * 10e3 * 1.2e7}
 scd_cern = {"name": "SCD CERN", "beam_p0": 5e3, "pmax": 15e3, "pmin": 0, "C": 866700, "beam_dpop": 1e-3, "beam_dtheta": 5.90e-4, "circular": False, "Nmu":1.8e9 * 10e3 * 139/365 * 3.154e7}
-mokhov = {"name": "Mohkov et al. (Fermilab)", "beam_p0": 75e1, "pmax": 75e1 *3, "pmin":0, "C": 273000, "beam_dpop": 1e-3, "beam_dtheta": 1.05e-3, "circular":False, "Nmu": 1.28e10*2730 * 3.154e7 *139/365} #these are number of decats per second! not year
+mokhov = {"name": "Mohkov et al. (Fermilab)", "beam_p0": 75e1, "pmax": 75e1 *3, "pmin":0, "C": 273000, "beam_dpop": 1e-3, "beam_dtheta": 1.05e-3, "circular":False, "Nmu": 1.28e10*2730/15} #these are number of decats per second! not year
 
 parameters = {"mutristan s": mutristan_small, "mutristan l": mutristan_large, 'mucol s1' : mucol_s1, 'mucol s2': mucol_s2, 'scd cern': scd_cern, 'mokhov':mokhov}
