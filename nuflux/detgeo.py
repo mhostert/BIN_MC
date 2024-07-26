@@ -439,7 +439,7 @@ class SimulateDetector():
         self.N_evals = N_evals
         self.cco = SimulateDecays(param = param, N_evals = N_evals, alr_loaded = alr_loaded, dt = dt)
     
-    def run(self, Lss = 0, geom = 'det_v2', show_components = 1, show_time = 1, collision = None):
+    def run(self, Lss = 0, geom = 'det_v2', show_components = 1, show_time = 0, collision = None):
         '''Runs the whole simulation, based on a storage ring geometry, detector geometry, and collision. 
         
         Args:
@@ -573,28 +573,40 @@ class SimulateDetector():
         print('\nEvent Distribution:\n',table)
         
     
-    def get_data(self, sec = 'all'):
+    def get_data(self, sec = 'all', part = 'all'):
         '''Retrieving data from the sims object.
         
         Args: 
-            sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels. Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid, or nozzles.'''
+            sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels. Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid_borders, solenoid_mid, or nozzles.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
         
         if (sec != 'all') & (sec not in self.comps):
             print('This is not an implemented detector component. Choices are ')
-            
-        x = np.concatenate([sim.arrx for sim in self.sims])
-        y = np.concatenate([sim.arry for sim in self.sims])
-        z = np.concatenate([sim.arrz for sim in self.sims])
-        w = np.concatenate([sim.w for sim in self.sims])
-        times = np.concatenate([sim.times for sim in self.sims])
-        E = np.concatenate([sim.E for sim in self.sims])
-        mask = np.concatenate([sim.get_face_masks(sec) for sim in self.sims])
+        
+        if (part != 'all') & (part not in muonic_neutrinos) & (part not in electronic_neutrinos):
+            print('This is not a valid particle!')
+        
+        elif part == 'all':
+            maskp = np.ones_like(self.sims, dtype = bool)
+        
+        else:
+            maskp = [(sim.particle == part) for sim in self.sims]
+        
+        sims = [item for item,keep in zip(self.sims, maskp) if keep]
+        
+        x = np.concatenate([sim.arrx for sim in sims])
+        y = np.concatenate([sim.arry for sim in sims])
+        z = np.concatenate([sim.arrz for sim in sims])
+        w = np.concatenate([sim.w for sim in sims])
+        times = np.concatenate([sim.times for sim in sims])
+        E = np.concatenate([sim.E for sim in sims])
+        mask = np.concatenate([sim.get_face_masks(sec) for sim in sims])
 
         return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
     
     
                 
-    def plot(self, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False, sec = 'all', colorbar = True):
+    def plot(self, nbins = 200, cmin = 1, orientation = 'z-y', savefig = None, fs = (20,12), cmap = 'viridis', ax = None, title = True, xl = True, yl = True, vmin = None, vmax = None, h = False, sec = 'all', colorbar = True, part = 'all'):
         '''Plotting the detector event distribution as a hist2d instance, with the detector geometry behind.
         
         Args:
@@ -606,7 +618,8 @@ class SimulateDetector():
             xl/yl (bool): to display the x-label and y-label.
             vmin/vmax (float): to change color displays.
             h (bool): to return the plot obj.
-            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
 
         if not ax:
             fig, ax = plt.subplots(figsize = fs)
@@ -614,7 +627,7 @@ class SimulateDetector():
         bs = np.linspace(-1* self.zending, self.zending, nbins)
         bs2 = np.linspace(-1*self.rmax, self.rmax, nbins)
 
-        x, y, z, w, _, _ = self.get_data(sec = sec)
+        x, y, z, w, _, _ = self.get_data(sec = sec, part = part)
 
         lbl4 = f"Experiment: {self.name}"
         lbl3 = f"Collision: {acc_colls_dict[self.collision]}" 
@@ -640,7 +653,7 @@ class SimulateDetector():
         if h:
             return ha
 
-    def event_timing(self, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, legend = False, title = True, sec = 'all'):
+    def event_timing(self, fs = (20,12), histtype = 'barstacked', nbins = 100, savefig = None, legend = False, title = True, sec = 'all', part = 'all'):
         '''Wrapper to plot neutrino interaction times.
         
         Args:
@@ -648,12 +661,13 @@ class SimulateDetector():
             fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
             title (bool): if one wants to display the pre-generated title.
             legend (bool): to display the pre-generated legend.
-            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
 
         if fs:
             plt.figure(figsize  = fs)
 
-        _, _, _, w, times, _ = self.get_data(sec = sec)
+        _, _, _, w, times, _ = self.get_data(sec = sec, part = part)
 
         label = f'{sec}; ' + r'$N_{events}$' + f': {np.sum(w):.3e}'
 
@@ -678,7 +692,7 @@ class SimulateDetector():
         if savefig:
             plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-    def phi_distribution(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False, sec = 'all'):
+    def phi_distribution(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, ylog = True, label='', legend = False, sec = 'all', part = 'all'):
         '''Wrapper to plot the phi distribution of neutrino events.
         
         Args:
@@ -688,12 +702,13 @@ class SimulateDetector():
             legend (bool): to display the legend.
             ylog (bool): to set the y-scale as log.
             label (str): Label of the plot.
-            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
 
         if fs:
             plt.figure(figsize = fs)
 
-        x, y, _, w, _, _ = self.get_data(sec = sec)
+        x, y, _, w, _, _ = self.get_data(sec = sec, part = part)
 
         phi = np.arctan(x/y)
 
@@ -710,7 +725,7 @@ class SimulateDetector():
         if savefig:
             plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-    def energies(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-', sec = 'all'):
+    def energies(self, fs = (20,12), histtype = 'step', nbins = 100, savefig = None, label = '', legend = False, linestyle='-', sec = 'all', part = 'all'):
         '''Wrapper to plot energy flux of particles.
         
         Args:
@@ -719,12 +734,13 @@ class SimulateDetector():
             fs (tuple): figsize of plot. Can be None to display on the same plot that is being worked on.
             legend (bool): to display the legend.
             linestyle (str): plt linestyle options.
-            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.'''
+            sec (str): the component of the detector one wants to single out. Options are the sames as those written in get_data() method description.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
         
         if fs:
             plt.figure(figsize = fs)
 
-        _, _, _, w, _, E = self.get_data(sec = sec)
+        _, _, _, w, _, E = self.get_data(sec = sec, part = part)
 
         plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
         plt.ylabel(r'$N_{events}/yr$')
@@ -736,13 +752,15 @@ class SimulateDetector():
         if savefig:
             plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-    def get_GENIE_flux(self, filename, nbins = 100):
+    def get_GENIE_flux(self, filename, nbins = 100, part = 'all'):
         '''Creates a flux .data file for GENIE simulation of events.
         
         Args:
             filename (str): name of file to be saved in the fluxes/ folder.
-            nbins (int): number of bins for the histogram.'''
-        _, _, _, w, _, E = self.get_data()
+            nbins (int): number of bins for the histogram.
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
+        
+        _, _, _, w, _, E = self.get_data(part = part)
         h = np.histogram(E, weights = w, bins = 100)
         flux = h[0]
         eg = h[1]
