@@ -293,6 +293,7 @@ class SimNeutrinos():
         cumulative_distances = np.cumsum(self.distances, axis = 1)
         normed_m = self.momenta / np.linalg.norm(self.momenta, axis = 1)[:, np.newaxis]
         self.dec_pos = self.dec_pos[:,np.newaxis,:]
+        self.costheta = normed_m[:,2]
         normed_m = normed_m[:,np.newaxis, :]
         
         self.events_position, self.part_face_counts =  get_events_njit2(pweights, mid[:,np.newaxis], self.counts, self.dec_pos, normed_m, cumulative_distances, self.t_values)
@@ -389,13 +390,15 @@ class SimNeutrinos():
         self.w  = self.part_face_counts.flatten()
         self.times = self.t_values / helpers.LIGHT_SPEED - self.mutimes
         self.t_values = self.t_values.flatten()
-            
+        
         self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
-            
+        self.costheta = self.costheta[:,np.newaxis] * np.ones(self.part_face_counts.shape)
+        
         del self.part_face_counts
         
         new_mask = (self.w > 0)
         self.E = self.E.flatten()[new_mask]
+        self.costheta = self.costheta.flatten()[new_mask]
         self.arrx = self.events_position[:,:,0].flatten()[new_mask]
         self.arry = self.events_position[:,:,1].flatten()[new_mask]
         self.arrz = self.events_position[:,:,2].flatten()[new_mask]
@@ -474,7 +477,7 @@ class SimulateDetector():
         nsims = len(parts)
         self.Geometry = geom
         geom = importlib.import_module(self.Geometry)
-        self.comps = geom.facedict.keys()
+        self.comps = list(geom.facedict.keys())
         self.zending = geom.zending
         self.rmax = geom.rmax
         cc = copy.deepcopy(self.cco)
@@ -491,12 +494,12 @@ class SimulateDetector():
         t1 = time.time() - t0
         extra = ''
         
-        if t1 > 3*nsims/4 * self.N_evals / 1e5:
+        if t1 > 1.75*nsims/2 * self.N_evals / 1e5:
             extra = ' (numba pre-compilation needed)'
         
         self.name = ud.parameters[self.param]['name']
         print(f'Successfully simulated neutrino event rates within {geom.name}:')
-        print(f'{self.name} ({acc_colls_dict[self.collision]}) at L = {self.L/100:.2f} m.')
+        print(f'{self.name} ({acc_colls_dict[self.collision]}) at L = {self.L:.2f} m.')
         print(f'Total count: {self.tc:.2e} events; took {t1:.3} s{extra}.')
             
         if show_components:
@@ -505,7 +508,17 @@ class SimulateDetector():
         if show_time:
             self.get_timetable()   
             
-    
+        sim = copy.deepcopy(self)
+        
+        del sims
+        del self.sims
+        del sim1
+        del sim2
+        del sim3
+        del sim4
+        
+        return sim
+        
     def get_timetable(self):
         '''Prints the table of detailed time durations for the simulation.'''
         
@@ -537,7 +550,7 @@ class SimulateDetector():
     def get_face_counts(self):
         '''Prints the table of detailed distribution of events in detector components.'''
         
-        names = list(self.comps)
+        names = copy.deepcopy(self.comps)
         names.append('TOTAL')
         total_count = 0
         totals = []
@@ -600,9 +613,10 @@ class SimulateDetector():
         w = np.concatenate([sim.w for sim in sims])
         times = np.concatenate([sim.times for sim in sims])
         E = np.concatenate([sim.E for sim in sims])
+        costheta = np.concatenate([sim.costheta for sim in sims])
         mask = np.concatenate([sim.get_face_masks(sec) for sim in sims])
 
-        return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask]
+        return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask], costheta[mask]
     
     
                 
@@ -627,11 +641,11 @@ class SimulateDetector():
         bs = np.linspace(-1* self.zending, self.zending, nbins)
         bs2 = np.linspace(-1*self.rmax, self.rmax, nbins)
 
-        x, y, z, w, _, _ = self.get_data(sec = sec, part = part)
+        x, y, z, w, _, _,_ = self.get_data(sec = sec, part = part)
 
         lbl4 = f"Experiment: {self.name}"
         lbl3 = f"Collision: {acc_colls_dict[self.collision]}" 
-        lbl = r"$L_{ss} = $" + f"{self.L/100:.0f} m"
+        lbl = r"$L_{ss} = $" + f"{self.L:.0f} m"
         lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
 
         c_dict = {'z-y': [z, y], 'z-x': [z, x], 'x-y': [x, y]}
@@ -667,12 +681,12 @@ class SimulateDetector():
         if fs:
             plt.figure(figsize  = fs)
 
-        _, _, _, w, times, _ = self.get_data(sec = sec, part = part)
+        _, _, _, w, times, _, _ = self.get_data(sec = sec, part = part)
 
         label = f'{sec}; ' + r'$N_{events}$' + f': {np.sum(w):.3e}'
 
         if sec == 'all':
-            label = r"$L_{ss} = $" + f"{self.L/100:.0f} m"
+            label = r"$L_{ss} = $" + f"{self.L:.0f} m"
 
         times *= 1e9
 
@@ -680,7 +694,7 @@ class SimulateDetector():
         plt.ylabel(r'$N_{events}$')
 
         if title:
-            plt.title(f'Event Timing (wrt bunch crossing); ({self.name} at L = {self.L/100:.2f})')
+            plt.title(f'Event Timing (wrt bunch crossing); ({self.name} at L = {self.L:.2f})')
 
         plt.hist(times, weights = w, histtype = histtype, bins = nbins, label = label)
 
@@ -708,7 +722,7 @@ class SimulateDetector():
         if fs:
             plt.figure(figsize = fs)
 
-        x, y, _, w, _, _ = self.get_data(sec = sec, part = part)
+        x, y, _, w, _, _, _ = self.get_data(sec = sec, part = part)
 
         phi = np.arctan(x/y)
 
@@ -740,7 +754,7 @@ class SimulateDetector():
         if fs:
             plt.figure(figsize = fs)
 
-        _, _, _, w, _, E = self.get_data(sec = sec, part = part)
+        _, _, _, w, _, E, _ = self.get_data(sec = sec, part = part)
 
         plt.hist(E, weights = w, histtype = histtype, bins = nbins, label = label, linestyle = linestyle)
         plt.ylabel(r'$N_{events}/yr$')
@@ -760,7 +774,7 @@ class SimulateDetector():
             nbins (int): number of bins for the histogram.
             part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
         
-        _, _, _, w, _, E = self.get_data(part = part)
+        _, _, _, w, _, E, _ = self.get_data(part = part)
         h = np.histogram(E, weights = w, bins = 100)
         flux = h[0]
         eg = h[1]
