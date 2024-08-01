@@ -204,13 +204,14 @@ INITIALIZERS = [three, two, one] #should not contain minus_one or zero or minus_
 DECAYER = [minus_one, minus_two]
 OUTSIDE = [minus_one, zero, four, five, fifty, eighteen]
 iterations = 35
-facedict = {'muon_detector': [1, 31, 8, 49, 88, 26], 
-            'solenoid': [20,21,22,23,24,25,32,33,34], 
+facedict = {'muon_detector': [1, 31, 8, 49, 88, 26, 93], 
+            'solenoid_borders': [20,22,23,25,32,34], 
+            'solenoid_mid':[21, 24, 33],
             'hcal':[10,19,28,29,30,39,47,71,72,76,77,81], 
             'ecal':[11,35,41,42,46,52,68,69,70,83,86], 
             'nozzles':[-2,2,14,15,17,27,43,78,53,66,67,82,85,87]}
 
-facedict = {'muon_detector_ec': [1, 31, 8, 49, 93], 
+'''facedict = {'muon_detector_ec': [1, 31, 8, 49, 93], 
             'muon_detector_barrel': [26, 88],
             'solenoid_borders': [20,22,23,25,32,34], 
             'solenoid_mid':[21, 24, 33],
@@ -218,6 +219,6 @@ facedict = {'muon_detector_ec': [1, 31, 8, 49, 93],
             'hcal_barrel': [29,30,71],
             'ecal_ec': [11,35,42,46,52,68,83,86], 
             'ecal_barrel': [41,69,70],
-            'nozzles':[-2,2,14,15,17,27,43,78,53,66,67,82,85,87]}
+            'nozzles':[-2,2,14,15,17,27,43,78,53,66,67,82,85,87]}'''
 
 name = 'Det v2'

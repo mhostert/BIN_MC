@@ -201,7 +201,7 @@ class cc:
         self.p = pos
         self.pnumu = pnumu
         self.pnue = pnue
-        self.vmu = 2.998e10 * np.sqrt((1 - (105.7e-3/Emu)**2)) #speed of muons
+        self.vmu = 2.998e10 * np.sqrt((1 - (105.6583755e-3/Emu)**2)) #speed of muons
 
     def straight_segment_at_detector(self, zlength, Lss):
         '''Changes the coordinate axis, position, and momenta of particles to fit a storage ring geometry.

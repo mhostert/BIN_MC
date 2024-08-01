@@ -8,6 +8,7 @@ sys.path.append(cfp)
 import copy, gc, importlib, time
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from numba import njit, jit
 from prettytable import PrettyTable
 from memory_profiler import profile
@@ -24,6 +25,7 @@ import useful_data as ud
 muonic_neutrinos = ['numu', 'numubar']
 electronic_neutrinos = ['nue', 'nuebar']
 part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 'anti ν_μ'}
+partn_names = {'12': 'ν_e', '-12': 'anti ν_e', '14': 'ν_μ', '-14': 'anti ν_μ'}
 acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
 acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
 colldict = {'mutristan s': ['mu+e-', 'mu+mu+'], 'mutristan l': ['mu+e-', 'mu+mu+'], 'mucol s1': ['mu+mu-'], 'mucol s2': ['mu+mu-'], 'mokhov': ['mu+mu-'], 'scd cern': ['mu+mu-']}
@@ -442,7 +444,7 @@ class SimulateDetector():
         self.N_evals = N_evals
         self.cco = SimulateDecays(param = param, N_evals = N_evals, alr_loaded = alr_loaded, dt = dt)
     
-    def run(self, Lss = 0, geom = 'det_v2', show_components = 1, show_time = 0, collision = None):
+    def run(self, Lss = 0, geom = 'det_v2', show_components = 0, show_time = 0, collision = None):
         '''Runs the whole simulation, based on a storage ring geometry, detector geometry, and collision. 
         
         Args:
@@ -473,8 +475,8 @@ class SimulateDetector():
         sim3 = None
         sim4 = None
         sims = [sim1,sim2,sim3,sim4]
-        parts = [part[0] for part in colls_types_to_part[collision]]
-        nsims = len(parts)
+        self.parts = [part[0] for part in colls_types_to_part[collision]]
+        nsims = len(self.parts)
         self.Geometry = geom
         geom = importlib.import_module(self.Geometry)
         self.comps = list(geom.facedict.keys())
@@ -483,13 +485,14 @@ class SimulateDetector():
         cc = copy.deepcopy(self.cco)
         cc.straight_segment_at_detector(geom.zending, Lss = Lss)
         
-        for i, part in enumerate(parts):
+        for i, part in enumerate(self.parts):
             sims[i] = SimNeutrinos(cc, geom, part, direc[i]).run()
             sims[i].clear_mem()
             sims[i].w *= 2/nsims
             sims[i].calculate_facecounts()
         
-        self.sims = [sims[i] for i in range(nsims)]
+        sims = [sims[i] for i in range(nsims)]
+        self.sims = sims
         self.tc = np.sum([np.sum(sims[i].w) for i in range(nsims)])           
         t1 = time.time() - t0
         extra = ''
@@ -500,16 +503,18 @@ class SimulateDetector():
         self.name = ud.parameters[self.param]['name']
         print(f'Successfully simulated neutrino event rates within {geom.name}:')
         print(f'{self.name} ({acc_colls_dict[self.collision]}) at L = {self.L:.2f} m.')
-        print(f'Total count: {self.tc:.2e} events; took {t1:.3} s{extra}.')
+        print(f'Total count: {self.tc:.2e} events; took {t1:.3} s{extra}.\n')
             
         if show_components:
             self.get_face_counts()
             
         if show_time:
             self.get_timetable()   
-            
-        sim = copy.deepcopy(self)
         
+        self.sims = None
+        
+        sim = copy.deepcopy(self)
+        sim.sims = sims
         del sims
         del self.sims
         del sim1
@@ -545,25 +550,30 @@ class SimulateDetector():
             formatted_row = [f'{x:.3e}' for i,x in enumerate(row)]
             table.add_row([name] + formatted_row)
 
-        print('\nTime Distribution:\n',table)
+        print('Time Distribution:\n',table)
 
-    def get_face_counts(self):
+    def get_face_counts(self, percentage = 0):
         '''Prints the table of detailed distribution of events in detector components.'''
         
+        f = 1
+        
+        if percentage:
+            f = 100/self.tc
+            
         names = copy.deepcopy(self.comps)
         names.append('TOTAL')
         total_count = 0
         totals = []
 
         for sim in self.sims:
-            totals.append(sum(list(sim.facecounts.values())))
+            totals.append(sum(list(sim.facecounts.values()))*f)
 
         total_count = sum(totals)
         
         data = []
         
         for key in self.comps:
-            row = [sim.facecounts[key] for sim in self.sims]
+            row = [sim.facecounts[key]*f for sim in self.sims]
             row.append(np.sum(row))
             data.append(row)
         
@@ -580,10 +590,16 @@ class SimulateDetector():
         table.field_names = labels
 
         for name, row in zip(names, data):
-            formatted_row = [f"{x:.3e}" for x in row]
+            
+            if percentage:
+                formatted_row = [f"{x:.1f}" for x in row]
+            
+            else:
+                formatted_row = [f"{x:.3e}" for x in row]
+                
             table.add_row([name] + formatted_row)
 
-        print('\nEvent Distribution:\n',table)
+        print('Event Distribution:\n',table)
         
     
     def get_data(self, sec = 'all', part = 'all'):
@@ -594,10 +610,10 @@ class SimulateDetector():
             part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
         
         if (sec != 'all') & (sec not in self.comps):
-            print('This is not an implemented detector component. Choices are ')
+            raise ValueError('This is not an implemented detector component. Choices are: ' + str(self.comps))
         
-        if (part != 'all') & (part not in muonic_neutrinos) & (part not in electronic_neutrinos):
-            print('This is not a valid particle!')
+        if (part != 'all') & (part not in self.parts):
+            raise ValueError('This is not a valid particle! Choices are: ' + str(self.parts))
         
         elif part == 'all':
             maskp = np.ones_like(self.sims, dtype = bool)
@@ -788,7 +804,7 @@ class SimulateDetector():
             for item1, item2 in zip(egs, flux):
                 file.write(f"{item1}\t{item2}\n")
 
-        print(f"Data has been written to {fn}.")
+        print(f"Data has been written to {fn}")
         
 
 @njit
@@ -807,7 +823,6 @@ def get_events_njit2(pweights, mid, counts, dec_pos, normed_m, cumulative_distan
     part_face_counts = counts * pweights # these are the face counts (expected)
     events_position = dec_pos + t_values[:,:,np.newaxis] * normed_m
     return events_position, part_face_counts
-
 
 def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
     '''Plots the detector geometry behind a sim plot.'''
@@ -928,3 +943,60 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
 
     else:
         print("this geometry has not been implemented yet!")
+
+def load_data(fil, direc = None, n_events = 1e5):
+    '''Loads a GENIE analysis file from $GENANA. Adds weights. Note that SB is solenoid border while SM is solenoid middle (they differ in material).
+    
+        Args:
+        n_events: number of events that the GENIE file had. Matheus, use 1e5.'''
+    
+    if direc:
+        os.system('source ~/.bashrc')
+        directory = os.getenv(direc)
+
+    if directory is None:
+        raise ValueError(f"Environment variable {direc} is not set. Ensure it's defined in your .bashrc and loaded correctly.")
+    
+    filename = os.path.join(directory, fil)
+    
+    with open(filename, 'r') as file:
+        
+        for i, line in enumerate(file):
+            
+            if i == 0:
+                continue
+                
+            elif i == 1:
+                exp = (line.split(':')[1])[:-1]
+            
+            elif i == 2:
+                particles = ((line.split(':')[1])[:-1]).split(',')
+            
+            elif i == 3:
+                comps = (line.split(':')[1])[:-1]
+            
+            else:
+                break
+    
+    expname = (ud.weights[exp])['Name']
+    parts = [partn_names[part] for part in particles]
+    particlenames = ', '.join(parts)
+    t = comps.replace(',', ', ')
+    
+    print(f'Loading generated data for a {expname} experiment;')
+    print(f'It includes interactions from {particlenames} within the {t} of the muon detector.')
+    
+    data = pd.read_csv(filename, delim_whitespace=True, skiprows = 5)
+    
+    print('Adding weights...')
+    
+    data['w'] = data.apply(lambda row: get_weight(row['DComp'], row['Particle'], exp, n_events = n_events), axis = 1)
+    
+    print('Done!')
+    
+    return data
+
+def get_weight(comp, p, exp, n_events):
+    '''Getting the weight of a genie particle from its detector component.'''
+    return (ud.weights[exp])['tc'] * ((ud.weights[exp])[p])[comp] /100 /n_events #the last factor depends on how many generated events there are in the files. It only supports same n files across detectors.
+
