@@ -512,6 +512,7 @@ class SimulateDetector():
             self.get_timetable()   
         
         self.sims = None
+        del cc
         
         sim = copy.deepcopy(self)
         sim.sims = sims
@@ -521,7 +522,7 @@ class SimulateDetector():
         del sim2
         del sim3
         del sim4
-        
+        del sim.cco
         return sim
         
     def get_timetable(self):
@@ -659,18 +660,18 @@ class SimulateDetector():
 
         x, y, z, w, _, _,_ = self.get_data(sec = sec, part = part)
 
-        lbl4 = f"Experiment: {self.name}"
+        lbl4 = f"Experiment: {ud.parameters[self.param]['name']}"
         lbl3 = f"Collision: {acc_colls_dict[self.collision]}" 
         lbl = r"$L_{ss} = $" + f"{self.L:.0f} m"
         lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
-
+        ax.plot([-1* self.zending,-1* self.zending,self.zending,self.zending,-1* self.zending],[-1*self.rmax,self.rmax,self.rmax,-1*self.rmax,-1*self.rmax], color = 'black', zorder = 50)
         c_dict = {'z-y': [z, y], 'z-x': [z, x], 'x-y': [x, y]}
 
         ha = ax.hist2d(c_dict[orientation][0], c_dict[orientation][1], alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap, norm = LogNorm(vmin = vmin, vmax = vmax))
         plot_det(self.Geometry, ax, orientation = orientation, xl = xl, yl = yl)
-
+        
         ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
-
+        
         if title:
             ax.set_title(f'Event Distribution: {orientation}')
 
@@ -884,7 +885,7 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
             cols = ['grey', 'white', 'gray', 'white', 'lightgrey', 'white','gray','white','darkgrey','white','dimgrey','white', 'black', 'white']
             
             for i, det in enumerate(dets):
-                circle = plt.Circle((0,0), det, zorder = i, alpha = 0.7, edgecolor = cols[i], facecolor=cols[i])
+                circle = plt.Circle((0,0), det, zorder = i, alpha = 1, edgecolor = cols[i], facecolor=cols[i])
                 ax.add_artist(circle)
                 
             ax.scatter(MDET,MDET, color = cols[3])
@@ -927,10 +928,10 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
             
             for i, det in enumerate(dets):
                 ax.plot(det[0],det[1], color = cols[i])
-                ax.fill_between(det[0], det[1], color = cols[i], alpha=0.7)
+                ax.fill_between(det[0], det[1], color = cols[i], alpha=1)
                 new_y =[-1*k for k in det[1]]
                 ax.plot(det[0], new_y, color = cols[i])
-                ax.fill_between(det[0], new_y, color = cols[i], alpha=0.7)
+                ax.fill_between(det[0], new_y, color = cols[i], alpha=1)
 
             if xl:
                 ax.set_xlabel("z-coordinate (cm)")
