@@ -3,6 +3,7 @@ import numpy as np
 
 from numba import njit
 from scipy.optimize import bisect
+from memory_profiler import profile
 
 from DarkNews import Cfourvec as Cfv
 
@@ -202,62 +203,77 @@ class cc:
         self.pnumu = pnumu
         self.pnue = pnue
         self.vmu = 2.998e10 * np.sqrt((1 - (105.6583755e-3/Emu)**2)) #speed of muons
-
-    def straight_segment_at_detector(self, zlength, Lss):
+    
+    #@profile
+    def straight_segment_at_detector(self, zlength, Lss, two = False):
         '''Changes the coordinate axis, position, and momenta of particles to fit a storage ring geometry.
         Lss = -1 means that the cc object has already been transformed.'''
-        
+        sim = copy.deepcopy(self)
+        #print(sim.C)
         if Lss==-1:
-            return
+            return sim
         
         elif Lss==0:
             Lss = 0.01
             
         Lss = 100*Lss
-        self.L = Lss
-        K = Lss/(self.C - Lss)
+        sim.L = Lss
+        K = Lss/(sim.C - Lss)
         a = 1e-6
         b = np.pi-1e-6
         eta = bisect(to_opt, a,b, args=(K,))
-        self.Racc = Lss/2/np.sin(eta)
-        zpos = self.p[:,2] % self.C
+        sim.Racc = Lss/2/np.sin(eta)
+        
+        factor = 0
+        
+        if two:
+            factor = sim.C/2
+            
+        zpos = (sim.p[:,2] + factor) % sim.C
         
         if not Lss:
-            on_straight_mask_left = [False]*self.sample_size
-            on_straight_mask_right = [False]*self.sample_size
+            on_straight_mask_left = [False]*sim.sample_size
+            on_straight_mask_right = [False]*sim.sample_size
         
         else:
-            on_straight_mask_left = (zpos > self.C - Lss/2)
+            on_straight_mask_left = (zpos > (sim.C - Lss/2))
             on_straight_mask_right = (zpos < Lss/2)
         
         #for straight segment decays
         on_circ = ~((on_straight_mask_right) | (on_straight_mask_left))
-        self.p[on_straight_mask_right,2] = zpos[on_straight_mask_right]
-        self.p[on_straight_mask_left,2] = zpos[on_straight_mask_left] - self.C
+        sim.p[on_straight_mask_right,2] = zpos[on_straight_mask_right]
+        sim.p[on_straight_mask_left,2] = zpos[on_straight_mask_left] - sim.C
         
         #lower dim quantities (for circ)
-        phis = (zpos[on_circ] - Lss/2)/self.Racc + eta
-        self.pnumu[on_circ,:] = Cfv.rotationx(self.pnumu[on_circ], phis)
-        self.pnue[on_circ,:] = Cfv.rotationx(self.pnue[on_circ], phis)
-        self.p[on_circ, 2] = (self.Racc + self.p[on_circ, 1])* np.sin(phis)
-        self.p[on_circ, 1] = (self.Racc + self.p[on_circ, 1])*np.cos(phis) - Lss/2/np.tan(eta)
+        phis = (zpos[on_circ] - Lss/2)/sim.Racc + eta
+        sim.pnumu[on_circ,:] = Cfv.rotationx(sim.pnumu[on_circ], phis)
+        sim.pnue[on_circ,:] = Cfv.rotationx(sim.pnue[on_circ], phis)
+        sim.p[on_circ, 2] = (sim.Racc + sim.p[on_circ, 1])* np.sin(phis)
+        sim.p[on_circ, 1] = (sim.Racc + sim.p[on_circ, 1])*np.cos(phis) - Lss/2/np.tan(eta)
         
         #for mltd
-        mltd = np.empty(self.sample_size)
-        mltd[zpos < self.C/2] = -1*zpos[zpos < self.C/2]
-        mltd[zpos > self.C/2] =  (self.C - zpos[zpos > self.C/2])
+        mltd = np.empty(sim.sample_size)
+        mltd[zpos < sim.C/2] = -1*zpos[zpos < sim.C/2]
+        mltd[zpos > sim.C/2] =  (sim.C - zpos[zpos > sim.C/2])
 
         #free memory
-        mask_acc = (self.p[:,2] < zlength) & (self.p[:,1] >-1 * Lss/2/np.tan(eta))
-        mltd = mltd[mask_acc]
-        vmu = self.vmu[mask_acc]
-        self.p = self.p[mask_acc]
-        self.pnumu = self.pnumu[mask_acc]
-        self.pnue = self.pnue[mask_acc]
-        self.weights = self.weights[mask_acc]
-        self.sample_size = np.sum(mask_acc)
-        self.times = mltd/vmu
-    
+        mask_acc = (sim.p[:,2] < zlength) & (sim.p[:,1] >-1 * Lss/2/np.tan(eta))
+        mask_acc2 = (sim.p[:,2] > -1*zlength) & (sim.p[:,1] >-1 * Lss/2/np.tan(eta))
+        
+        sim.p = sim.p[mask_acc]
+        sim.pnumu = sim.pnumu[mask_acc]
+        sim.pnue = sim.pnue[mask_acc]
+        sim.weights = sim.weights[mask_acc]
+        sim.sample_size = np.sum(mask_acc)
+        sim.times = mltd[mask_acc]/self.vmu[mask_acc]
+        
+        if two:
+            sim2, _ = self.straight_segment_at_detector(zlength, Lss = Lss/100, two = False)
+            return sim, sim2
+        
+        return sim, None
+        
+        
     def clear_mem(self):
         '''Freeing memory at the end of a sim, if necessary'''
         deletables = ['Racc', 'p', 'pnumu', 'pnue', 'weights', 'sample_size', 'Nmu']

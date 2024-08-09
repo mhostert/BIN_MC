@@ -22,8 +22,8 @@ import useful_data as ud
 
 
 # Relevant dictionaries for treating sim demands.
-muonic_neutrinos = ['numu', 'numubar']
-electronic_neutrinos = ['nue', 'nuebar']
+anti_neutrinos = ['nuebar', 'numubar']
+neutrinos = ['numu', 'nue']
 part_names = {'nue': 'ν_e', 'nuebar': 'anti ν_e', 'numu': 'ν_μ', 'numubar': 'anti ν_μ'}
 partn_names = {'12': 'ν_e', '-12': 'anti ν_e', '14': 'ν_μ', '-14': 'anti ν_μ'}
 acc_colls_types = ['mu+e-', 'mu+mu+', 'mu+mu-']
@@ -31,6 +31,8 @@ acc_colls_dict = {'mu+e-': 'μ+e-', 'mu+mu+': 'μ+μ+', 'mu+mu-': 'μ+μ-'}
 colldict = {'mutristan s': ['mu+e-', 'mu+mu+'], 'mutristan l': ['mu+e-', 'mu+mu+'], 'mucol s1': ['mu+mu-'], 'mucol s2': ['mu+mu-'], 'mokhov': ['mu+mu-'], 'scd cern': ['mu+mu-']}
 colls_types_to_part = {'mu+e-': [['nue', 'left'], ['numubar', 'left']], 'mu+mu+': [['nue', 'left'], ['numubar', 'left'], ['nue', 'right'], ['numubar', 'right']], 'mu+mu-': [['nue', 'left'], ['numubar', 'left'], ['nuebar', 'right'], ['numu', 'right']]}
 direc = ['left', 'left', 'right', 'right']
+paramtofile = {'mutristan s': 'muTs', 'mokhov': 'mokhov', 'mucol s2': 'mucols2'}
+compsto2 = {'muon_detector': 'MD', 'solenoid_borders': 'SB', 'solenoid_mid':'SM', 'hcal':'HC', 'ecal':'EC', 'nozzles':'NO'}
 
 @profile
 def check_mem():
@@ -106,7 +108,8 @@ def SimulateDecays(param = 'mutristan s', N_evals = 1e5, alr_loaded=False, dt = 
 
 class SimNeutrinos():
     '''Detector Simulation.'''
-    def __init__(self, coord_object, geom, particle = None, Lss = 0, direc = 'left'):
+    #@profile
+    def __init__(self, coord_object, geom, particle = None, direc = 'left'):
         self.time = np.zeros(6)
         
         self.d = direc
@@ -129,9 +132,10 @@ class SimNeutrinos():
         
         #Decay-related quantities
         self.mutimes = coord_object.times
-        self.w = coord_object.weights.reshape((coord_object.weights.shape[0],1)) # already normalized (does not include all decays!!!)
-        self.Nmu = coord_object.Nmu
         self.sample_size = coord_object.sample_size
+        self.Nmu = coord_object.Nmu
+        self.weights = coord_object.weights.reshape((coord_object.weights.shape[0],1)) # already normalized (does not include all decays!!!)
+        self.weights = np.full((self.sample_size,1), self.Nmu) * self.weights
         self.paramname = coord_object.name
         
         if coord_object.L < 100:
@@ -140,17 +144,18 @@ class SimNeutrinos():
         else:
             self.Lval = coord_object.L
         
-        if self.particle in muonic_neutrinos:
+        if self.particle in anti_neutrinos:
             self.momenta = coord_object.pnumu[:,1:]
             self.E = coord_object.pnumu[:,0]
             
-        elif self.particle in electronic_neutrinos:
+        elif self.particle in neutrinos:
             self.momenta = coord_object.pnue[:,1:]
             self.E = coord_object.pnue[:,0]
 
         #Detector-related quantities
         self.initialize_quantities(coord_object.p)
-
+    
+    #@profile
     def find_info(self): 
         '''Getting all intersection points of neutrinos with detector components.'''
         
@@ -160,7 +165,6 @@ class SimNeutrinos():
         to = delta_z / self.momenta[:,2]
         ip = self.intersection_points[:,0,:] + to[:, np.newaxis] * self.momenta #intersection points
         r_values = np.sqrt(ip[:,0]**2+ip[:,1]**2)
-        
         cond_1 = ~(((self.intersection_points[:,0,2] < self.zending) & (self.intersection_points[:,0,2] > self.zbeginning) & (self.intersection_points[:,0,1] > -1 * self.rmax) & (self.intersection_points[:,0,1] < self.rmax)))
         cond_2 = ((r_values > self.rmax) | (to < 0))
         mask_not_accepted = cond_2 & cond_1
@@ -176,10 +180,10 @@ class SimNeutrinos():
         for obj in self.initials:
             mask_accepted = mask_accepted & (self.location[:,1]==-1)
             new_indices = obj.check_in(r_values, mask_accepted) #gives indices (numbers) of those that go in one of the initials
-
             self.location[new_indices, 1] = obj.id
             self.intersection_points[new_indices, 1, :] = ip[new_indices,:]
-        
+            self.new_indices = new_indices
+            
         del self.initials
         
         #at this point, there should be -1s (decaying in detector), 0s (did not reach detector), and ids of initials
@@ -199,20 +203,22 @@ class SimNeutrinos():
         
         ip2 = self.intersection_points[mask_decay,0,:] + t[:,0][:, np.newaxis]*self.momenta[mask_decay]
         
-        for neighb in self.decayer[0].next_ids:
-            neighbor = self.objects[neighb]
-            loc_mask  = (self.location[mask_decay, 1]==-1)
-            new_indices, new_mask = self.decayer[0].check_in(neighbor, ip2[:,2], mask_decay, loc_mask) #gives indices (numbers)
-            self.location[new_indices, 1] = neighb
-            ips = ip2[new_mask,:]
-            self.intersection_points[new_indices, 1, :] = ips
-            self.densities[new_indices, 0] = self.decayer[0].density
+        if self.decayer:
+            
+            for neighb in self.decayer[0].next_ids:
+                neighbor = self.objects[neighb]
+                loc_mask  = (self.location[mask_decay, 1]==-1)
+                new_indices, new_mask = self.decayer[0].check_in(neighbor, ip2[:,2], mask_decay, loc_mask) #gives indices (numbers)
+                self.location[new_indices, 1] = neighb
+                ips = ip2[new_mask,:]
+                self.intersection_points[new_indices, 1, :] = ips
+                self.densities[new_indices, 0] = self.decayer[0].density
 
 
-        #treating decays within the detector components themselves
-        weird_decay_mask = (self.location[:,1] == -1)
-        self.update_intersections(self.decayer[1], count, weird_decay_mask)
-        self.location[weird_decay_mask,0] = -2
+            #treating decays within the detector components themselves
+            weird_decay_mask = (self.location[:,1] == -1)
+            self.update_intersections(self.decayer[1], count, weird_decay_mask)
+            self.location[weird_decay_mask,0] = -2
         
         del self.decayer
         
@@ -246,6 +252,7 @@ class SimNeutrinos():
         del self.outside
         del self.outside_ids
     
+    #@profile
     def get_probs(self):
         '''Determine the weights of each interacting neutrino.'''
         
@@ -254,19 +261,15 @@ class SimNeutrinos():
         self.dec_pos = self.intersection_points[:,0,:]
         
         #might have been easier to just save the t parameters throughout...
-        del self.intersection_points
+        #del self.intersection_points
         
         self.part_line_integrals = self.distances * self.densities # huge array of distances in eahc component per ray
         for_mask = np.sum(self.part_line_integrals[:,1:], axis = 1)
         line_integrals = for_mask + self.part_line_integrals[:,0]
         self.cs = get_cs(self.E, self.particle)
         probs = 1 - np.exp(-1*self.cs * line_integrals)
-
-        factors = np.full((self.sample_size,1), self.Nmu) * self.w
         
-        del self.w #can be retrieved by np.sum(sim.part_face_counts, axis=1)
-        
-        self.counts = factors *probs[:, np.newaxis] # (sample_size, 1)
+        self.counts = self.weights *probs[:, np.newaxis] # (sample_size, 1)
         self.mask = (self.counts>0)
         self.mask = self.mask[:, 0]
         self.counts = self.counts[self.mask]
@@ -275,6 +278,7 @@ class SimNeutrinos():
         
         del self.densities 
     
+    #@profile
     def get_probs_njit(self):
         '''Gets the number of events (weights) of each interacting neutrino.'''
         #pweights these are probabilities, NOT WEIGHTS
@@ -300,6 +304,7 @@ class SimNeutrinos():
         
         self.events_position, self.part_face_counts =  get_events_njit2(pweights, mid[:,np.newaxis], self.counts, self.dec_pos, normed_m, cumulative_distances, self.t_values)
     
+    #@profile
     def get_event_positions(self):
         '''Monte Carlo generation of event positions'''     
         #freeing memory
@@ -307,10 +312,12 @@ class SimNeutrinos():
         self.dec_pos = self.dec_pos[self.mask]
         self.distances = self.distances[self.mask]
         self.part_line_integrals = self.part_line_integrals[self.mask]
+        self.intersection_points = self.intersection_points[self.mask]
         self.location = self.location[self.mask]
         self.E = self.E[self.mask]
         self.cs = self.cs[self.mask]
         self.mutimes = self.mutimes[self.mask, np.newaxis]
+        self.weights = self.weights[self.mask]
         
         self.t_values = np.empty((1,np.sum(self.mask), self.iterations - 1)) #same size as other big arrays now
         self.t_values[:,:, :] = [uniform.rvs(loc = 0, scale = self.distances)]        
@@ -321,6 +328,7 @@ class SimNeutrinos():
         
         return
     
+    #@profile
     def initialize_quantities(self, p):
         '''Initializes detector-related quantities.'''
         self.intersection_points = np.full((self.sample_size, self.iterations, 3), 1e4) #1e4 is arbitrary
@@ -330,6 +338,7 @@ class SimNeutrinos():
         self.intersection_points[:,0,:] = p
         self.distances = np.zeros((self.sample_size, self.iterations - 1))
     
+    #@profile
     def update_intersections(self, obj, count, mask):
         '''For a single object, with particles on it, finds their next component, iteratively on each neighbor, at a specific step of the sim.'''
         
@@ -342,7 +351,8 @@ class SimNeutrinos():
             self.intersection_points[accepted_ix, count, :] = ips[mask_1]
             self.location[accepted_ix, count] = neigh.id
             self.densities[accepted_ix, count-1] = obj.density
-
+    
+    #@profile
     def calculate_facecounts(self):
         '''Gets the facecounts for each detector component in the simulation.'''
         self.facecounts = {}
@@ -361,23 +371,37 @@ class SimNeutrinos():
             mask = np.isin(self.location, self.face_dict[sec])
 
         return mask
-
+    
+    #@profile
+    def get_lum_q(self, param):
+        '''Getting the luminosity parameters for a beam collision.'''
+        self.intersection_points = self.intersection_points[self.new_indices, 1,:]
+        self.weights = self.weights[self.new_indices]
+        self.Nnu = np.sum(self.weights) / ud.parameters[param]['syr']
+        wax = np.average(self.intersection_points[:,0], weights = self.weights[:,0])
+        way = np.average(self.intersection_points[:,1], weights = self.weights[:,0])
+        self.nusdx = np.sqrt(np.average((self.intersection_points[:,0] - wax)**2, weights = self.weights[:,0]))
+        print(f'{self.nusdx*10:.3} mm for sigma x')
+        self.nusdy = np.sqrt(np.average((self.intersection_points[:,1] - way)**2, weights = self.weights[:,0]))
+        print(f'{self.nusdy*10:.3} mm for sigma y')
+    
     def run(self):
         '''Runs the simulation for a single neutrino species.'''        
         
-        if (self.particle in muonic_neutrinos) | (self.particle in electronic_neutrinos):
+        if (self.particle in anti_neutrinos) | (self.particle in neutrinos):
             
             self.time[0] = time.time()
             
             self.find_info()
             self.get_probs()
             self.get_event_positions()
-       
+            #print('ran it')
             return self
         
         else:
             raise ValueError("No particle of that name included in this simulation!")
     
+    #@profile
     def clear_mem(self, arg = None):
         '''Freeing up memory.'''
         
@@ -386,26 +410,38 @@ class SimNeutrinos():
             if hasattr(self, arg):
                 delattr(self,arg)
                 return
-        
+            
+        #print('good')
         mask = (self.location[:,0] == -1)
         self.part_face_counts[mask,0] = 0
         self.w  = self.part_face_counts.flatten()
         self.times = self.t_values / helpers.LIGHT_SPEED - self.mutimes
         self.t_values = self.t_values.flatten()
-        
+        #print('good')
+        #print(self.E.shape, self.weights.shape, self.part_face_counts.shape)
         self.E = self.E[:,np.newaxis] * np.ones(self.part_face_counts.shape)
+        self.weights = self.weights * np.ones(self.part_face_counts.shape)
         self.costheta = self.costheta[:,np.newaxis] * np.ones(self.part_face_counts.shape)
-        
+        #print('good')
         del self.part_face_counts
-        
+        #print('good')
         new_mask = (self.w > 0)
+        #print('mask ok')
+        #check_mem()
+        #print(self.E.shape, self.weights.shape)
         self.E = self.E.flatten()[new_mask]
+        self.weights = self.weights.flatten()[new_mask]
+        #print('good')
         self.costheta = self.costheta.flatten()[new_mask]
         self.arrx = self.events_position[:,:,0].flatten()[new_mask]
         self.arry = self.events_position[:,:,1].flatten()[new_mask]
         self.arrz = self.events_position[:,:,2].flatten()[new_mask]
         self.t_values = self.t_values[new_mask]
         self.distances = self.distances.flatten()[new_mask]
+        #print('pli?')
+        nl = self.part_line_integrals.flatten()[new_mask]
+        self.wnl = nl * self.weights
+        #print('w r fine')
         ones = np.ones_like(self.times)
         self.mutimes = ones*self.mutimes
         self.mutimes = self.mutimes.flatten()[new_mask]
@@ -419,10 +455,11 @@ class SimNeutrinos():
         del new_mask, mask
         
         if self.d == 'right':
+            #print('got one right')
             self.arrx = -1 * self.arrx
             self.arrz = -1 * self.arrz
         
-        deletables=['momenta','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'dec_pos', 'mutimes', 'distances', 't_values']
+        deletables=['momenta','counts','part_line_integrals','f','zbeginning','rbp','iterations','Nmu','sample_size', 'cs', 'mask', 'mutimes', 'distances', 't_values', 'weights', 'dec_pos']
         
         for att in deletables:
             
@@ -444,6 +481,7 @@ class SimulateDetector():
         self.N_evals = N_evals
         self.cco = SimulateDecays(param = param, N_evals = N_evals, alr_loaded = alr_loaded, dt = dt)
     
+    #@profile
     def run(self, Lss = 0, geom = 'det_v2', show_components = 0, show_time = 0, collision = None):
         '''Runs the whole simulation, based on a storage ring geometry, detector geometry, and collision. 
         
@@ -482,14 +520,18 @@ class SimulateDetector():
         self.comps = list(geom.facedict.keys())
         self.zending = geom.zending
         self.rmax = geom.rmax
-        cc = copy.deepcopy(self.cco)
-        cc.straight_segment_at_detector(geom.zending, Lss = Lss)
-        
+        cc1, cc2 = self.cco.straight_segment_at_detector(geom.zending, Lss = Lss, two = True)
+        #print('Got through those')
+        ccs = [cc1, cc1, cc2, cc2]
+        #print(cc1, cc2)
         for i, part in enumerate(self.parts):
-            sims[i] = SimNeutrinos(cc, geom, part, direc[i]).run()
+            #print(f'Starting {i}')
+            sims[i] = SimNeutrinos(ccs[i], geom, part, direc[i]).run()
+            #print('got through here')
             sims[i].clear_mem()
             sims[i].w *= 2/nsims
             sims[i].calculate_facecounts()
+            #print(f'Sim {i} succesfully done.')
         
         sims = [sims[i] for i in range(nsims)]
         self.sims = sims
@@ -512,7 +554,8 @@ class SimulateDetector():
             self.get_timetable()   
         
         self.sims = None
-        del cc
+        del cc1
+        del cc2
         
         sim = copy.deepcopy(self)
         sim.sims = sims
@@ -525,6 +568,45 @@ class SimulateDetector():
         del sim.cco
         return sim
         
+    def NuNuLuminosity(self, particle1 = 'nue', particle2  = 'numu', Lss = 12):
+        '''Computing the luminosity of a neutrino collision.'''
+        
+        cc1,cc2 = self.cco.straight_segment_at_detector(0, Lss = Lss, two = False)
+        self.collision = 'mu+mu-'
+        self.L = Lss
+        self.ntimes = 6 #should be constant, except during debugging/improvements.
+        sim1 = None
+        sim2 = None
+        sim3 = None
+        sim4 = None
+        sims = [sim1,sim2,sim3,sim4]
+        self.parts = [part[0] for part in colls_types_to_part[self.collision]]
+        nsims = len(self.parts)
+        self.Geometry = 'nunulum'
+        geom = importlib.import_module(self.Geometry)
+        self.zending = geom.zending
+        self.rmax = geom.rmax
+        mask = (np.array(self.parts) == 'lol')
+        mask[np.array(self.parts) == particle1] = True
+        mask[np.array(self.parts) == particle2] = True
+        indices = np.where(mask)[0]
+        cc1, cc2 = self.cco.straight_segment_at_detector(geom.zending, Lss = Lss, two = True)
+        ccs = [cc1, cc1, cc2, cc2]
+        for i, part in enumerate(self.parts):
+            
+            if i not in indices:
+                continue
+                
+            sims[i] = SimNeutrinos(ccs[i], geom, part, direc[i])
+            sims[i].find_info()
+            sims[i].weights *= 2/nsims
+            sims[i].get_lum_q(self.param)
+            
+        sims = [sims[i] for i in range(nsims)]
+        p1 = indices[0]
+        p2 = indices[1]
+        return sims, sims[p1].Nnu * sims[p2].Nnu/4/np.pi/np.sqrt(sims[p1].nusdx**2 + sims[p2].nusdx**2)/np.sqrt(sims[p1].nusdy**2 + sims[p2].nusdy**2)
+
     def get_timetable(self):
         '''Prints the table of detailed time durations for the simulation.'''
         
@@ -603,12 +685,13 @@ class SimulateDetector():
         print('Event Distribution:\n',table)
         
     
-    def get_data(self, sec = 'all', part = 'all'):
+    def get_data(self, sec = 'all', part = 'all', genie = 0):
         '''Retrieving data from the sims object.
         
         Args: 
             sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels. Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid_borders, solenoid_mid, or nozzles.
-            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
+            part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.
+            genie (bool): to get the n*l factor in too.'''
         
         if (sec != 'all') & (sec not in self.comps):
             raise ValueError('This is not an implemented detector component. Choices are: ' + str(self.comps))
@@ -632,7 +715,10 @@ class SimulateDetector():
         E = np.concatenate([sim.E for sim in sims])
         costheta = np.concatenate([sim.costheta for sim in sims])
         mask = np.concatenate([sim.get_face_masks(sec) for sim in sims])
-
+        
+        if genie:
+            w = np.concatenate([sim.wnl for sim in sims])
+        
         return x[mask], y[mask], z[mask], w[mask], times[mask], E[mask], costheta[mask]
     
     
@@ -670,7 +756,7 @@ class SimulateDetector():
         ha = ax.hist2d(c_dict[orientation][0], c_dict[orientation][1], alpha = 1, zorder = 30, bins = (bs, bs2), weights = w, cmin = cmin, cmap = cmap, norm = LogNorm(vmin = vmin, vmax = vmax))
         plot_det(self.Geometry, ax, orientation = orientation, xl = xl, yl = yl)
         
-        ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
+        #ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
         
         if title:
             ax.set_title(f'Event Distribution: {orientation}')
@@ -783,24 +869,29 @@ class SimulateDetector():
         if savefig:
             plt.savefig(savefig, bbox_inches = 'tight', dpi = 300)
     
-    def get_GENIE_flux(self, filename, nbins = 100, part = 'all'):
+    def get_GENIE_flux(self, sec, part, nbins = 100, filename = None):
         '''Creates a flux .data file for GENIE simulation of events.
         
         Args:
-            filename (str): name of file to be saved in the fluxes/ folder.
+            filename (str): name of file to be saved in the fluxes/ folder (opt).
             nbins (int): number of bins for the histogram.
+            sec (str): detector component to consider.
             part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.'''
         
-        _, _, _, w, _, E, _ = self.get_data(part = part)
+        _, _, _, w, _, E, _ = self.get_data(sec = sec, part = part, genie = 1)
         h = np.histogram(E, weights = w, bins = 100)
         flux = h[0]
         eg = h[1]
         egs = [(eg[i] + eg[1+i])/2 for i in range(len(eg)-1)]
 
         assert len(egs) == len(flux), "Lists must have the same length"
-
-        fn = f"fluxes/{filename}.data"
-
+        
+        if filename:
+            fn = f"{filename}"
+        
+        else:
+            fn = f'fluxes/{paramtofile[self.param]}_{compsto2[sec]}_{part}.data'
+        
         with open(fn, "w") as file:
             for item1, item2 in zip(egs, flux):
                 file.write(f"{item1}\t{item2}\n")
@@ -939,8 +1030,8 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
             if yl:
                 ax.set_ylabel("y-coordinate (cm)")
             
-            ax.set_xlim(-564, 564)
-            ax.set_ylim(-645, 645)
+            #ax.set_xlim(-564, 564)
+            #ax.set_ylim(-645, 645)
 
     else:
         print("this geometry has not been implemented yet!")

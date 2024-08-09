@@ -42,12 +42,12 @@ ecal_CLICdet = comp([[W, 1.9 / 5.05],[Cu, 2.3/5.05],[Si, 0.5/5.05]])
 EARTH_DENSITY = unif(5.51).N
 
 #Parameter sets; from muTristan (Hamada et al., 2022), and MuCoL (Intl Muon Coll Collab, 2023)
-mutristan_small = {"name": "μTRISTAN (s)", "beam_p0": 1e3, "pmax": 3e3, "pmin":0, "C": 3e5, "beam_dpop": 1e-3, "beam_dtheta": 1.71e-4,"circular": False, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7}
-mutristan_large = {"name": "μTRISTAN (L)", "beam_p0": 3e3, "pmax": 9e3, "pmin":0, "C": 9e5, "beam_dpop": 1e-3, "beam_dtheta": 99e-5,"circular": False, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7}
-mucol_s1 = {"name": "MuCoL (s1)", "beam_p0": 1.5e3, "pmax": 4.5e3, "pmin":0, "C": 4.5e5, "beam_dpop": 1e-3, "beam_dtheta": 5.88e-4,"circular": False, "Nmu": 4.9e9  * 4.5e3* 1.2e7}
-mucol_s2 = {"name": "IMCC-II", "beam_p0": 5e3, "pmax": 15e3, "pmin":0, "C": 10e5, "beam_dpop": 1e-3, "beam_dtheta": 5.88e-4,"circular": False, "Nmu": 1.8e9 * 10e3 * 1.2e7}
-scd_cern = {"name": "SCD CERN", "beam_p0": 5e3, "pmax": 15e3, "pmin": 0, "C": 866700, "beam_dpop": 1e-3, "beam_dtheta": 5.90e-4, "circular": False, "Nmu":1.8e9 * 10e3 * 139/365 * 3.154e7}
-mokhov = {"name": "Mohkov et al. (Fermilab)", "beam_p0": 75e1, "pmax": 75e1 *3, "pmin":0, "C": 273000, "beam_dpop": 1e-3, "beam_dtheta": 1.05e-3, "circular":False, "Nmu": 1.28e10*2730 * 139/365 * 3.154e7} #these are number of decays per bunch crossing! not year
+mutristan_small = {"name": "μTRISTAN (s)", "beam_p0": 1e3, "pmax": 3e3, "pmin":0, "C": 3e5, "beam_dpop": 1e-3, "beam_dtheta": 1.71e-4,"circular": False, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7, "syr": 365.25 * 24* 3600 *0.7, 'bunch':40, "finj":50}
+mutristan_large = {"name": "μTRISTAN (L)", "beam_p0": 3e3, "pmax": 9e3, "pmin":0, "C": 9e5, "beam_dpop": 1e-3, "beam_dtheta": 99e-5,"circular": False, "Nmu": 3.6e-9 / (1.6e-19) * (1 - 1/np.e) *40* 365.25 * 24* 3600 * 50*0.7, "syr": 365.25 * 24* 3600 *0.7, 'bunch':40, "finj":50}
+mucol_s1 = {"name": "MuCoL (s1)", "beam_p0": 1.5e3, "pmax": 4.5e3, "pmin":0, "C": 4.5e5, "beam_dpop": 1e-3, "beam_dtheta": 5.88e-4,"circular": False, "Nmu": 4.9e9  * 4.5e3* 1.2e7, "syr":  1.2e7, 'bunch':1, "finj": 5}
+mucol_s2 = {"name": "IMCC-II", "beam_p0": 5e3, "pmax": 15e3, "pmin":0, "C": 10e5, "beam_dpop": 1e-3, "beam_dtheta": 5.88e-4,"circular": False, "Nmu": 1.8e9 * 10e3 * 1.2e7, "syr":  1.2e7, 'bunch':1, "finj": 5}
+scd_cern = {"name": "SCD CERN", "beam_p0": 5e3, "pmax": 15e3, "pmin": 0, "C": 866700, "beam_dpop": 1e-3, "beam_dtheta": 5.90e-4, "circular": False, "Nmu":1.8e9 * 10e3 * 139/365 * 3.154e7, "syr":  1.2e7, 'bunch':1, "finj": 5}
+mokhov = {"name": "Mohkov et al. (Fermilab)", "beam_p0": 75e1, "pmax": 75e1 *3, "pmin":0, "C": 273000, "beam_dpop": 1e-3, "beam_dtheta": 1.05e-3, "circular":False, "Nmu": 1.28e10*2730 * 139/365 * 3.154e7, "syr":  1.2e7, 'bunch':1, "finj": 15} 
 
 parameters = {"mutristan s": mutristan_small, "mutristan l": mutristan_large, 'mucol s1' : mucol_s1, 'mucol s2': mucol_s2, 'scd cern': scd_cern, 'mokhov':mokhov}
 
