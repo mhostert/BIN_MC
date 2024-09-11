@@ -288,30 +288,37 @@ class material:
     def __init__(self):
         self.N = 0
         self.density = 0
+        self.e = 0
 
 class subs(material):
     '''Pure substances; periodic elements.'''
-    def __init__(self, density, am, A):
+    def __init__(self, density, am, A, Z):
         super().__init__()
         self.density = density
         self.am = am
+        self.Z = Z
         self.A = A
-        self.N = AVOGADRO * self.density / self.am * self.A
+        nq = AVOGADRO * self.density / self.am
+        self.N = nq * self.A
+        self.e = nq * self.Z
 
 class comp(material):
     '''Compositions of periodic elements.'''
     def __init__(self, table):
         super().__init__()
+        
         for row in table:
             self.density += row[0].density * row[1]
             self.N += row[0].N * row[1] #row[0] is N of an element; row[1] is the percentage of it that occupies the total material
+            self.e += row[0].e * row[1]
 
 class unif(material):
     '''Alloys/compositions of uniform densities.'''
     def __init__(self, density):
         super().__init__()
         self.density = density
-        self.N = self.density / MASS_NUCLEON   
+        self.N = self.density / MASS_NUCLEON  
+        self.e = self.N / 2 
 
         
 def to_opt(x, K):
