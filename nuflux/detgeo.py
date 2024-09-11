@@ -606,6 +606,46 @@ class SimulateDetector():
         p1 = indices[0]
         p2 = indices[1]
         return sims, sims[p1].Nnu * sims[p2].Nnu/4/np.pi/np.sqrt(sims[p1].nusdx**2 + sims[p2].nusdx**2)/np.sqrt(sims[p1].nusdy**2 + sims[p2].nusdy**2)
+    
+    def NuNuLuminosity(self, particle1 = 'nue', particle2  = 'numu', Lss = 12):
+        '''Computing the luminosity of a neutrino collision.'''
+        
+        cc1,cc2 = self.cco.straight_segment_at_detector(0, Lss = Lss, two = False)
+        self.collision = 'mu+mu-'
+        self.L = Lss
+        self.ntimes = 6 #should be constant, except during debugging/improvements.
+        sim1 = None
+        sim2 = None
+        sim3 = None
+        sim4 = None
+        sims = [sim1,sim2,sim3,sim4]
+        self.parts = [part[0] for part in colls_types_to_part[self.collision]]
+        nsims = len(self.parts)
+        self.Geometry = 'nunulum'
+        geom = importlib.import_module(self.Geometry)
+        self.zending = geom.zending
+        self.rmax = geom.rmax
+        mask = (np.array(self.parts) == 'lol')
+        mask[np.array(self.parts) == particle1] = True
+        mask[np.array(self.parts) == particle2] = True
+        indices = np.where(mask)[0]
+        cc1, cc2 = self.cco.straight_segment_at_detector(geom.zending, Lss = Lss, two = True)
+        ccs = [cc1, cc1, cc2, cc2]
+        for i, part in enumerate(self.parts):
+            
+            if i not in indices:
+                continue
+                
+            sims[i] = SimNeutrinos(ccs[i], geom, part, direc[i])
+            sims[i].find_info()
+            sims[i].weights *= 2/nsims
+            sims[i].get_lum_q(self.param)
+            
+        sims = [sims[i] for i in range(nsims)]
+        p1 = indices[0]
+        p2 = indices[1]
+        return sims, sims[p1].Nnu * sims[p2].Nnu/4/np.pi/np.sqrt(sims[p1].nusdx**2 + sims[p2].nusdx**2)/np.sqrt(sims[p1].nusdy**2 + sims[p2].nusdy**2)
+    
 
     def get_timetable(self):
         '''Prints the table of detailed time durations for the simulation.'''
@@ -1036,7 +1076,7 @@ def plot_det(geom, ax, orientation ='z-y', xl = True, yl = True):
     else:
         print("this geometry has not been implemented yet!")
 
-def load_data(fil, direc = None, n_events = 1e5):
+def load_data(fil, direc = None, n_events = 1e5, getQ = False):
     '''Loads a GENIE analysis file from $GENANA. Adds weights. Note that SB is solenoid border while SM is solenoid middle (they differ in material).
     
         Args:
@@ -1084,6 +1124,9 @@ def load_data(fil, direc = None, n_events = 1e5):
     
     data['w'] = data.apply(lambda row: get_weight(row['DComp'], row['Particle'], exp, n_events = n_events), axis = 1)
     
+    if getQ:
+        data['Q2'] = data.apply(lambda row: get_Q2(row['nu_E'], row['E'], row['pz']), axis = 1)
+    
     print('Done!')
     
     return data
@@ -1091,4 +1134,8 @@ def load_data(fil, direc = None, n_events = 1e5):
 def get_weight(comp, p, exp, n_events):
     '''Getting the weight of a genie particle from its detector component.'''
     return (ud.weights[exp])['tc'] * ((ud.weights[exp])[p])[comp] /100 /n_events #the last factor depends on how many generated events there are in the files. It only supports same n files across detectors.
+
+def get_Q2(nu_E, E, pz):
+    '''Getting Q squared from the generated events.'''
+    return -1*((nu_E - E)**2 - (nu_E - pz)**2)
 

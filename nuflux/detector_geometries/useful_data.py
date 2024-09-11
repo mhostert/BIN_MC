@@ -26,13 +26,13 @@ def cs_interp():
     return sigmanue, sigmanuebar, sigmanumu, sigmanumubar
 
 #density in g/cm**3; atomic mass in g/mol
-Si = subs(2.329, 28.0855, 28)
-WSi2 = subs(9.3, 240.01, 240)
-Fe = subs(7.874, 55.845,56)
-Al = subs(2.7,26.981539, 27)
-W = subs(19.3, 183.84, 184)
-Cu = subs(8.96, 63.546, 64)
-PS = subs(1.05, 104.1, 104)
+Si = subs(2.329, 28.0855, 28, 14)
+WSi2 = subs(9.3, 240.01, 240, 102)
+Fe = subs(7.874, 55.845,56, 26)
+Al = subs(2.7,26.981539, 27, 13)
+W = subs(19.3, 183.84, 184, 74)
+Cu = subs(8.96, 63.546, 64, 29)
+PS = subs(1.05, 104.1, 104, 56)
 
 #from CLICdet paper
 hcal_CLICdet = comp([[Fe, 20/26.5],[Al, 0.7/26.5],[Cu, 0.1 / 26.5],[PS, 3/26.5]]) 
