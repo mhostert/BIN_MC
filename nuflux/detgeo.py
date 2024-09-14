@@ -62,6 +62,14 @@ compsto2 = {
     "ecal": "EC",
     "nozzles": "NO",
 }
+pdg2names = {
+    "12": "nue",
+    "-12": "nuebar",
+    "14": "numu",
+    "-14": "numubar",
+    "16": "nutau",
+    "-16": "nutaubar"
+}
 
 
 @profile
@@ -1436,11 +1444,12 @@ def load_data(fil, direc = None, n_events = 1e5, getQ = False):
     print("Adding weights...")
 
     data["w"] = data.apply(
-        lambda row: get_weight(row["DComp"], row["Particle"], exp, n_events=n_events),
+        lambda row: get_weight(row["DComp"], row["IncL"], exp, n_events=n_events),
         axis=1,
     )
     
     if getQ:
+        print("Computing Q2...")
         data['Q2'] = data.apply(lambda row: get_Q2(row['nu_E'], row['E'], row['pz']), axis = 1)
 
     print("Done!")
@@ -1456,6 +1465,6 @@ def get_Q2(nu_E, E, pz):
 def get_weight(comp, p, exp, n_events):
     """Getting the weight of a genie particle from its detector component."""
     return (
-        (ud.weights[exp])["tc"] * ((ud.weights[exp])[p])[comp] / 100 / n_events
+        (ud.weights[exp])["tc"] * ((ud.weights[exp])[pdg2names[str(p)]])[comp] / 100 / n_events
     )  # the last factor depends on how many generated events there are in the files. It only supports same n files across detectors.
 
