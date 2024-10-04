@@ -891,7 +891,7 @@ class SimulateDetector:
 
     def plot(
         self,
-        nbins=200,
+        nbins=100,
         cmin=1,
         orientation="z-y",
         savefig=None,
@@ -935,31 +935,45 @@ class SimulateDetector:
         lbl3 = f"Collision: {acc_colls_dict[self.collision]}"
         lbl = r"$L_{ss} = $" + f"{self.L:.0f} m"
         lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
-        ax.plot(
-            [
-                -1 * self.zending,
-                -1 * self.zending,
-                self.zending,
-                self.zending,
-                -1 * self.zending,
-            ],
-            [-1 * self.rmax, self.rmax, self.rmax, -1 * self.rmax, -1 * self.rmax],
-            color="black",
-            zorder=50,
-        )
+        # ax.plot(
+        #     [
+        #         -1 * self.zending,
+        #         -1 * self.zending,
+        #         self.zending,
+        #         self.zending,
+        #         -1 * self.zending,
+        #     ],
+        #     [-1 * self.rmax, self.rmax, self.rmax, -1 * self.rmax, -1 * self.rmax],
+        #     color="black",
+        #     zorder=50,
+        # )
         c_dict = {"z-y": [z, y], "z-x": [z, x], "x-y": [x, y]}
-
         ha = ax.hist2d(
             c_dict[orientation][0],
             c_dict[orientation][1],
             alpha=1,
-            zorder=30,
+            zorder=2.5,
             bins=(bs, bs2),
             weights=w,
             cmin=cmin,
             cmap=cmap,
-            norm=LogNorm(vmin=vmin, vmax=vmax),
+            norm=LogNorm(),
         )
+        ax.clear()
+        vmin, vmax = ha[-1].get_clim()
+        print(f"vmin: {vmin}, vmax: {vmax}")
+        ha = ax.hist2d(
+            c_dict[orientation][0],
+            c_dict[orientation][1],
+            alpha=1,
+            zorder=2.5,
+            bins=(bs, bs2),
+            weights=w,
+            cmin=cmin,
+            cmap=cmap,
+            norm=LogNorm(vmin=vmax / 1e5, vmax=vmax),
+        )
+
         plot_det(self.Geometry, ax, orientation=orientation, xl=xl, yl=yl)
 
         # ax.legend([lbl4, lbl3, lbl, lbl2], loc='lower right').set_zorder(50)
@@ -1284,7 +1298,12 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
 
             for i, det in enumerate(dets):
                 circle = plt.Circle(
-                    (0, 0), det, zorder=i, alpha=1, edgecolor=cols[i], facecolor=cols[i]
+                    (0, 0),
+                    det,
+                    zorder=i / len(dets),
+                    alpha=1,
+                    edgecolor=cols[i],
+                    facecolor=cols[i],
                 )
                 ax.add_artist(circle)
 
