@@ -4,8 +4,8 @@ from scipy.stats import truncexpon
 from DarkNews import Cfourvec as Cfv
 from DarkNews import const
 
-from nuflux import analysis
-from nuflux import fluxMC as MC
+from MuC import analysis
+from MuC import mudecay_tools as MC
 
 
 class neutrino_flux(object):
@@ -49,7 +49,6 @@ class neutrino_flux(object):
             Mparent=Mparent,
             Mdaughter=Mdaughter,
             helicity=+1,
-            ptmax=0.001,
             pmin=pmin,
             pmax=pmax,
             beam_dpop=beam_dpop,  # GeV
@@ -67,7 +66,6 @@ class neutrino_flux(object):
             Mparent=Mparent,
             Mdaughter=Mdaughter,
             helicity=-1,
-            ptmax=0.001,
             pmin=pmin,
             pmax=pmax,
             beam_dpop=beam_dpop,  # GeV
@@ -196,9 +194,7 @@ class neutrino_flux(object):
 
         ########
         # radius of the ring defined by the intersection of the neutrino momentum and the plane Z=Z_ND
-        self.dR_numu = (
-            np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
-        )
+        self.dR_numu = np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
         self.dR_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
 
 

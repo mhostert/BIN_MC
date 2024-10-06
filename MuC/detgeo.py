@@ -1,81 +1,29 @@
-import sys, os
+import os
 
-cfp = os.path.dirname(os.path.abspath(__file__))
-td = os.path.join(cfp, "detector_geometries")
-sys.path.append(td)
-cfp = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(cfp)
-
-import copy, importlib, time
+import copy
+import importlib
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from numba import njit
 from prettytable import PrettyTable
-from memory_profiler import profile
 from scipy.stats import uniform
 from matplotlib.colors import LogNorm
 
-import data
-import helpers
-import useful_data as ud
+import MuC
+from MuC import mudecay_tools as mudec
+from MuC import detector_tools as det
+from MuC import collider_tools as col
+from MuC import xsecs
 
+# from memory_profiler import profile
 
-# Relevant dictionaries for treating sim demands.
-anti_neutrinos = ["nuebar", "numubar"]
-neutrinos = ["numu", "nue"]
-part_names = {"nue": "ν_e", "nuebar": "anti ν_e", "numu": "ν_μ", "numubar": "anti ν_μ"}
-partn_names = {"12": "ν_e", "-12": "anti ν_e", "14": "ν_μ", "-14": "anti ν_μ"}
-acc_colls_types = ["mu+e-", "mu+mu+", "mu+mu-"]
-acc_colls_dict = {"mu+e-": "μ+e-", "mu+mu+": "μ+μ+", "mu+mu-": "μ+μ-"}
-colldict = {
-    "mutristan s": ["mu+e-", "mu+mu+"],
-    "mutristan l": ["mu+e-", "mu+mu+"],
-    "mucol s1": ["mu+mu-"],
-    "mucol s2": ["mu+mu-"],
-    "mokhov": ["mu+mu-"],
-    "scd cern": ["mu+mu-"],
-}
-colls_types_to_part = {
-    "mu+e-": [["nue", "left"], ["numubar", "left"]],
-    "mu+mu+": [
-        ["nue", "left"],
-        ["numubar", "left"],
-        ["nue", "right"],
-        ["numubar", "right"],
-    ],
-    "mu+mu-": [
-        ["nue", "left"],
-        ["numubar", "left"],
-        ["nuebar", "right"],
-        ["numu", "right"],
-    ],
-}
-direc = ["left", "left", "right", "right"]
-paramtofile = {"mutristan s": "muTs", "mokhov": "mokhov", "mucol s2": "mucols2"}
-compsto2 = {
-    "muon_detector": "MD",
-    "solenoid_borders": "SB",
-    "solenoid_mid": "SM",
-    "hcal": "HC",
-    "ecal": "EC",
-    "nozzles": "NO",
-}
-pdg2names = {
-    "12": "nue",
-    "-12": "nuebar",
-    "14": "numu",
-    "-14": "numubar",
-    "16": "nutau",
-    "-16": "nutaubar",
-}
-
-
-@profile
-def check_mem():
-    """For memory-consuming-checking processes."""
-    z = 1 + 2
-    return
+# @profile
+# def check_mem():
+#     """For memory-consuming-checking processes."""
+#     z = 1 + 2
+#     return
 
 
 def D3distance(point1, point2):
@@ -88,34 +36,31 @@ def D3distance(point1, point2):
     )
 
 
-def get_cs(E, part):
+def get_total_xsec(E, part):
     """Wrapper for detector_geometries.useful_data's cross section interpolation function."""
-    sigmanue, sigmanuebar, sigmanumu, sigmanumubar = ud.cs_interp()
-
     if part == "nue":
 
-        return sigmanue(E)
+        return xsecs.total_sigmanue(E)
 
     elif part == "nuebar":
 
-        return sigmanuebar(E)
+        return xsecs.total_sigmanuebar(E)
 
     elif part == "numu":
 
-        return sigmanumu(E)
+        return xsecs.total_sigmanumu(E)
 
     elif part == "numubar":
 
-        return sigmanumubar(E)
+        return xsecs.total_sigmanumubar(E)
 
 
-def SimulateDecays(param="mutristan s", N_evals=1e5, alr_loaded=False, dt=None):
+def SimulateDecays(design, N_evals=1e5, alr_loaded=False, dt=None):
     """Wrapper for data's Monte Carlo generation of muon decays. Alr_loaded if dt pre-generated, in which case you need to specify dt."""
 
     t0 = time.time()
 
     text = "(pre-generated dataset)"
-
     if not alr_loaded:
         attempt = 0
         max_attempts = 10
@@ -123,25 +68,24 @@ def SimulateDecays(param="mutristan s", N_evals=1e5, alr_loaded=False, dt=None):
         while attempt < max_attempts:
 
             try:
-                dt = list(data.get_particles(param, N_evals))
-                print("Succesfully simulated decays:")
+                dt = list(mudec.get_particles(design, N_evals))
                 max_attempts = 0
 
             except Exception as e:
                 attempt += 1
                 print(
-                    f"Attempt {attempt} failed. Trying again; tell MH to improve his code."
+                    f"Failed event generation. Attempt number {attempt}. Trying again. Exception: {e}",
                 )
 
         if not dt:
-            raise RunTimeError(
-                "Max attempts reached. Wait a bit, tell MH to work on his code, and try again."
+            raise RuntimeError(
+                "Max attempts reached. Could not generate dataset for decays."
             )
 
         text = ""
 
     if dt:
-        sim = helpers.cc(
+        sim = det.cc(
             C=dt[0],
             w=dt[1],
             sample_size=dt[2],
@@ -207,11 +151,11 @@ class SimNeutrinos:
         else:
             self.Lval = coord_object.L
 
-        if self.particle in anti_neutrinos:
+        if self.particle in MuC.anti_neutrinos:
             self.momenta = coord_object.pnumu[:, 1:]
             self.E = coord_object.pnumu[:, 0]
 
-        elif self.particle in neutrinos:
+        elif self.particle in MuC.neutrinos:
             self.momenta = coord_object.pnue[:, 1:]
             self.E = coord_object.pnue[:, 0]
 
@@ -273,12 +217,12 @@ class SimNeutrinos:
             )
             > self.rbp
         )
-        a, b, c = helpers.barrel_get_pols(
+        a, b, c = det.barrel_get_pols(
             self.rbp,
             self.intersection_points[mask_decay, 0, :],
             self.momenta[mask_decay],
         )
-        roots = helpers.get_roots(a, b, c)
+        roots = det.get_roots(a, b, c)
 
         new_mask_1 = np.round(roots[:, 0], decimals=12) > 0
         new_mask_2 = np.round(roots[:, 1], decimals=12) > 0
@@ -368,7 +312,9 @@ class SimNeutrinos:
         )  # huge array of distances in eahc component per ray
         for_mask = np.sum(self.part_line_integrals[:, 1:], axis=1)
         line_integrals = for_mask + self.part_line_integrals[:, 0]
-        self.cs = get_cs(self.E, self.particle)
+
+        # Total event rate (total nu cross section)
+        self.cs = get_total_xsec(self.E, self.particle)
         probs = 1 - np.exp(-1 * self.cs * line_integrals)
 
         self.counts = self.weights * probs[:, np.newaxis]  # (sample_size, 1)
@@ -451,7 +397,7 @@ class SimNeutrinos:
             (self.sample_size, self.iterations, 3), 1e4
         )  # 1e4 is arbitrary
         self.densities = np.zeros((self.sample_size, self.iterations - 1))
-        self.densities[:, 0] = ud.EARTH_DENSITY
+        self.densities[:, 0] = det.EARTH_DENSITY
         self.location = np.full(
             (self.sample_size, self.iterations), -1
         )  # starting at initials
@@ -501,7 +447,7 @@ class SimNeutrinos:
         """Getting the luminosity parameters for a beam collision."""
         self.intersection_points = self.intersection_points[self.new_indices, 1, :]
         self.weights = self.weights[self.new_indices]
-        self.Nnu = np.sum(self.weights) / ud.parameters[param]["syr"]
+        self.Nnu = np.sum(self.weights) / col.parameters[param]["syr"]
         wax = np.average(self.intersection_points[:, 0], weights=self.weights[:, 0])
         way = np.average(self.intersection_points[:, 1], weights=self.weights[:, 0])
         self.nusdx = np.sqrt(
@@ -520,7 +466,7 @@ class SimNeutrinos:
     def run(self):
         """Runs the simulation for a single neutrino species."""
 
-        if (self.particle in anti_neutrinos) | (self.particle in neutrinos):
+        if (self.particle in MuC.anti_neutrinos) | (self.particle in MuC.neutrinos):
 
             self.time[0] = time.time()
 
@@ -547,7 +493,7 @@ class SimNeutrinos:
         mask = self.location[:, 0] == -1
         self.part_face_counts[mask, 0] = 0
         self.w = self.part_face_counts.flatten()
-        self.times = self.t_values / helpers.LIGHT_SPEED - self.mutimes
+        self.times = self.t_values / det.LIGHT_SPEED - self.mutimes
         self.t_values = self.t_values.flatten()
         # print('good')
         # print(self.E.shape, self.weights.shape, self.part_face_counts.shape)
@@ -620,93 +566,96 @@ class SimNeutrinos:
 
 class SimulateDetector:
     """Simulating the whole detector interactions.
-    Hierarchy is as follows: Initializing SimulateDetector calls SimulateDecays; running simulates many SimNeutrinos based on the collision type, which is a single-neutrino-species MC generation of events within a detector, which are all saved in a list in the .sims attribute.
+    Hierarchy is as follows: Initializing SimulateDetector calls SimulateDecays; running simulates many SimNeutrinos based on the collision type,
+      which is a single-neutrino-species MC generation of events within a detector, which are all saved in a list in the .sims attribute.
     """
 
-    def __init__(self, param="mutristan s", N_evals=1e5, alr_loaded=False, dt=None):
+    def __init__(
+        self,
+        design,
+        N_evals=1e5,
+        alr_loaded=False,
+        dt=None,
+        geom="det_v2",
+        save_mem=True,
+    ):
         """Initializes from muon decay sim."""
 
-        if param not in ud.parameters.keys():
-            raise ValueError(
-                "Not a valid parameter set. Options are: mutristan s; mutristan l; mucol s1; mucol s2; scd cern; mokhov."
-            )
-
-        self.param = param
+        self.save_mem = save_mem
+        self.design = design
         self.N_evals = N_evals
         self.cco = SimulateDecays(
-            param=param, N_evals=N_evals, alr_loaded=alr_loaded, dt=dt
+            design=design, N_evals=N_evals, alr_loaded=alr_loaded, dt=dt
         )
 
+        # Detector geometry
+        self.geom = getattr(MuC, geom)
+        self.comps = list(self.geom.facedict.keys())
+        self.zending = self.geom.zending
+        self.rmax = self.geom.rmax
+        cc1, cc2 = self.cco.straight_segment_at_detector(
+            self.geom.zending, Lss=self.design["Lss"], two=True
+        )
+
+        self.ccs = [cc1, cc1, cc2, cc2]
+        if self.save_mem:
+            del cc1
+            del cc2
+
     # @profile
-    def run(self, Lss=0, geom="det_v2", show_components=0, show_time=0, collision=None):
+    def run(
+        self,
+        show_components=0,
+        show_time=0,
+    ):
         """Runs the whole simulation, based on a storage ring geometry, detector geometry, and collision.
 
         Args:
             show_components (bool): for distribution within different detector components.
             show_time (bool): for time summary.
-            collision (str): the type of collision. μTRISTAN experiments are the only ones to accept either mu+e- or mu+mu+; the others are all mu+mu-, by default.
             geom (str): the detector version. Latest is det_v2; uniform block is block_test; zero_density_test is exactly that; and det_v1 is simpler.
             Lss (float): Length of the straight segment upon which the IR detector is centered.
         """
 
         t0 = time.time()
 
-        if not collision:
-
-            if (self.param == "mutristan s") | (self.param == "mutristan l"):
-                self.collision = "mu+mu+"
-
-            else:
-                self.collision = "mu+mu-"
-
-        elif collision not in colldict[self.param]:
-            raise ValueError(
-                "Not a valid collison for this storage ring configuration. μTRISTAN experiments are the only ones to accept either mu+e- or mu+mu+; the others are all mu+mu-."
-            )
-
-        self.collision = collision
-        self.L = Lss
+        # Attempts to perform a muon decay simulation
         self.ntimes = 6  # should be constant, except during debugging/improvements.
-        sim1 = None
-        sim2 = None
-        sim3 = None
-        sim4 = None
-        sims = [sim1, sim2, sim3, sim4]
-        self.parts = [part[0] for part in colls_types_to_part[collision]]
-        nsims = len(self.parts)
-        self.Geometry = geom
-        geom = importlib.import_module(self.Geometry)
-        self.comps = list(geom.facedict.keys())
-        self.zending = geom.zending
-        self.rmax = geom.rmax
-        cc1, cc2 = self.cco.straight_segment_at_detector(
-            geom.zending, Lss=Lss, two=True
-        )
-        # print('Got through those')
-        ccs = [cc1, cc1, cc2, cc2]
-        # print(cc1, cc2)
-        for i, part in enumerate(self.parts):
-            # print(f'Starting {i}')
-            sims[i] = SimNeutrinos(ccs[i], geom, part, direc[i]).run()
-            # print('got through here')
-            sims[i].clear_mem()
-            sims[i].w *= 2 / nsims
-            sims[i].calculate_facecounts()
-            # print(f'Sim {i} succesfully done.')
 
-        sims = [sims[i] for i in range(nsims)]
-        self.sims = sims
-        self.tc = np.sum([np.sum(sims[i].w) for i in range(nsims)])
+        # Neutrino flux types -- determines how many muon decay simulations we need
+        self.parts = [
+            part[0] for part in col.colls_types_to_part[self.design["collision_type"]]
+        ]
+        self.nsims = len(self.parts)
+
+        # Cotainer for all simulations
+        self.sims = [[None]] * self.nsims
+
+        for i, part in enumerate(self.parts):
+
+            print(f"Simulating muon decays for {part}")
+            self.sims[i] = SimNeutrinos(
+                self.ccs[i], self.geom, part, MuC.directions[i]
+            ).run()
+
+            self.sims[i].clear_mem()
+            # NOTE: Where is this factor of 2 coming from? Two beams? I dont get it.
+            self.sims[i].w *= 2 / self.nsims
+            self.sims[i].calculate_facecounts()
+
+        self.total_count = np.sum([np.sum(self.sims[i].w) for i in range(self.nsims)])
         t1 = time.time() - t0
         extra = ""
 
-        if t1 > 1.75 * nsims / 2 * self.N_evals / 1e5:
+        if t1 > 1.75 * self.nsims / 2 * self.N_evals / 1e5:
             extra = " (numba pre-compilation needed)"
 
-        self.name = ud.parameters[self.param]["name"]
-        print(f"Successfully simulated neutrino event rates within {geom.name}:")
-        print(f"{self.name} ({acc_colls_dict[self.collision]}) at L = {self.L:.2f} m.")
-        print(f"Total count: {self.tc:.2e} events; took {t1:.3} s{extra}.\n")
+        self.name = self.design["name"]
+        print(f"Successfully simulated neutrino event rates within {self.geom.name}:")
+        print(
+            f"{self.name} ({col.acc_colls_dict[self.design['collision_type']]}) at L = {self.design['Lss']:.2f} m."
+        )
+        print(f"Total count: {self.total_count:.2e} events; took {t1:.3} s{extra}.\n")
 
         if show_components:
             self.get_face_counts()
@@ -714,37 +663,32 @@ class SimulateDetector:
         if show_time:
             self.get_timetable()
 
-        self.sims = None
-        del cc1
-        del cc2
-
         sim = copy.deepcopy(self)
-        sim.sims = sims
-        del sims
-        del self.sims
-        del sim1
-        del sim2
-        del sim3
-        del sim4
-        del sim.cco
+        sim.sims = self.sims
+
+        if self.save_mem:
+            del self.sims
+            del sim.cco
+            del sim.geom
+
         return sim
 
-    def NuNuLuminosity(self, particle1="nue", particle2="numu", Lss=12):
+    def NuNuLuminosity(self, particle1="nue", particle2="numu"):
         """Computing the luminosity of a neutrino collision."""
 
-        cc1, cc2 = self.cco.straight_segment_at_detector(0, Lss=Lss, two=False)
+        cc1, cc2 = self.cco.straight_segment_at_detector(
+            0, Lss=self.design["Lss"], two=False
+        )
         self.collision = "mu+mu-"
-        self.L = Lss
         self.ntimes = 6  # should be constant, except during debugging/improvements.
         sim1 = None
         sim2 = None
         sim3 = None
         sim4 = None
         sims = [sim1, sim2, sim3, sim4]
-        self.parts = [part[0] for part in colls_types_to_part[self.collision]]
+        self.parts = [part[0] for part in col.colls_types_to_part[self.collision]]
         nsims = len(self.parts)
-        self.Geometry = "nunulum"
-        geom = importlib.import_module(self.Geometry)
+        geom = importlib.import_module("MuC.detector_geometries.nunulum")
         self.zending = geom.zending
         self.rmax = geom.rmax
         mask = np.array(self.parts) == "lol"
@@ -752,7 +696,7 @@ class SimulateDetector:
         mask[np.array(self.parts) == particle2] = True
         indices = np.where(mask)[0]
         cc1, cc2 = self.cco.straight_segment_at_detector(
-            geom.zending, Lss=Lss, two=True
+            geom.zending, Lss=self.design["Lss"], two=True
         )
         ccs = [cc1, cc1, cc2, cc2]
         for i, part in enumerate(self.parts):
@@ -760,10 +704,10 @@ class SimulateDetector:
             if i not in indices:
                 continue
 
-            sims[i] = SimNeutrinos(ccs[i], geom, part, direc[i])
+            sims[i] = SimNeutrinos(ccs[i], geom, part, MuC.directions[i])
             sims[i].find_info()
             sims[i].weights *= 2 / nsims
-            sims[i].get_lum_q(self.param)
+            sims[i].get_lum_q(self.design)
 
         sims = [sims[i] for i in range(nsims)]
         p1 = indices[0]
@@ -777,8 +721,8 @@ class SimulateDetector:
         """Prints the table of detailed time durations for the simulation."""
 
         cols = [
-            part_names[part[0]] + " time (" + part[1] + ")"
-            for part in colls_types_to_part[self.collision]
+            MuC.part_names[part[0]] + " time (" + part[1] + ")"
+            for part in col.colls_types_to_part[self.collision]
         ]
         data = []
 
@@ -810,7 +754,7 @@ class SimulateDetector:
         f = 1
 
         if percentage:
-            f = 100 / self.tc
+            f = 100 / self.total_count
 
         names = copy.deepcopy(self.comps)
         names.append("TOTAL")
@@ -834,8 +778,8 @@ class SimulateDetector:
         data.append(trow)
 
         parts = [
-            part_names[part[0]] + " events (" + part[1] + ")"
-            for part in colls_types_to_part[self.collision]
+            MuC.part_names[part[0]] + " events (" + part[1] + ")"
+            for part in col.colls_types_to_part[self.collision]
         ]
 
         table = PrettyTable()
@@ -860,7 +804,8 @@ class SimulateDetector:
         """Retrieving data from the sims object.
 
         Args:
-            sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels. Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid_borders, solenoid_mid, or nozzles.
+            sec (str): the detector section (component) that one wants to single out. This usually fall in two categories: endcaps (ec) and barrels.
+                Set to: all, muon_detector_ec, muon_detector_barrel, ecal_ec, ecal_barrel, hcal_ec, hcal_barrel, solenoid_borders, solenoid_mid, or nozzles.
             part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.
             genie (bool): to get the n*l factor in too."""
 
@@ -939,10 +884,10 @@ class SimulateDetector:
 
         x, y, z, w, _, _, _ = self.get_data(sec=sec, part=part)
 
-        lbl4 = f"Experiment: {ud.parameters[self.param]['name']}"
-        lbl3 = f"Collision: {acc_colls_dict[self.collision]}"
-        lbl = r"$L_{ss} = $" + f"{self.L:.0f} m"
-        lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
+        # lbl4 = f"Experiment: {self.design}"
+        # lbl3 = f"Collision: {col.acc_colls_dict[self.collision]}"
+        # lbl = r"$L_{ss} = $" + f"{self.L:.0f} m"
+        # lbl2 = r"$N_{events} = $" + f"{np.sum(w):.3e} events"
         # ax.plot(
         #     [
         #         -1 * self.zending,
@@ -1028,7 +973,7 @@ class SimulateDetector:
         label = f"{sec}; " + r"$N_{events}$" + f": {np.sum(w):.3e}"
 
         if sec == "all":
-            label = r"$L_{ss} = $" + f"{self.L:.0f} m"
+            label = r"$L_{ss} = $" + f"{self.design['Lss']:.0f} m"
 
         times *= 1e9
 
@@ -1037,7 +982,7 @@ class SimulateDetector:
 
         if title:
             plt.title(
-                f"Event Timing (wrt bunch crossing); ({self.name} at L = {self.L:.2f})"
+                f"Event Timing (wrt bunch crossing); ({self.name} at L = {self.design['Lss']:.2f})"
             )
 
         plt.hist(times, weights=w, histtype=histtype, bins=nbins, label=label)
@@ -1163,7 +1108,7 @@ class SimulateDetector:
             fn = f"{filename}"
 
         else:
-            fn = f"fluxes/{paramtofile[self.param]}_{compsto2[sec]}_{part}.data"
+            fn = f"fluxes/{self.design['short_name']}_{MuC.compsto2[sec]}_{part}.data"
 
         with open(fn, "w") as file:
             for item1, item2 in zip(egs, flux):
@@ -1218,7 +1163,7 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
 
         BL = [[-564, -564, 564, 564, -564], [-3, 3, 3, -3, -3]]
 
-        dets = [
+        components = [
             T1,
             ECAL1,
             ECAL2,
@@ -1244,12 +1189,12 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
             + ["white"]
         )
 
-        for i, det in enumerate(dets):
-            ax.plot(det[0], det[1], color=cols[i])
-            ax.fill_between(det[0], det[1], color=cols[i], alpha=0.7)
-            new_y = [-1 * k for k in det[1]]
-            ax.plot(det[0], new_y, color=cols[i])
-            ax.fill_between(det[0], new_y, color=cols[i], alpha=0.7)
+        for i, component in enumerate(components):
+            ax.plot(component[0], component[1], color=cols[i])
+            ax.fill_between(component[0], component[1], color=cols[i], alpha=0.7)
+            new_y = [-1 * k for k in component[1]]
+            ax.plot(component[0], new_y, color=cols[i])
+            ax.fill_between(component[0], new_y, color=cols[i], alpha=0.7)
 
         ax.set_xlabel("z-coordinate (cm)")
         ax.set_ylabel("r-coordinate (cm)")
@@ -1271,7 +1216,7 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
             SPS6 = 150
             CONE = 31
             BL = 2.2
-            dets = [
+            components = [
                 MDET,
                 SPS1,
                 SOL_1,
@@ -1304,11 +1249,11 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
                 "white",
             ]
 
-            for i, det in enumerate(dets):
+            for i, component in enumerate(components):
                 circle = plt.Circle(
                     (0, 0),
                     det,
-                    zorder=i / len(dets),
+                    zorder=i / len(components),
                     alpha=1,
                     edgecolor=cols[i],
                     facecolor=cols[i],
@@ -1367,7 +1312,7 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
 
             BL = [[-563.8, -563.8, 563.8, 563.8, -563.8], [-2.2, 2.2, 2.2, -2.2, -2.2]]
 
-            dets = [
+            components = [
                 ECAL1,
                 ECAL2,
                 ECAL3,
@@ -1393,12 +1338,12 @@ def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
                 + ["white"]
             )
 
-            for i, det in enumerate(dets):
-                ax.plot(det[0], det[1], color=cols[i])
-                ax.fill_between(det[0], det[1], color=cols[i], alpha=1)
-                new_y = [-1 * k for k in det[1]]
-                ax.plot(det[0], new_y, color=cols[i])
-                ax.fill_between(det[0], new_y, color=cols[i], alpha=1)
+            for i, component in enumerate(components):
+                ax.plot(component[0], component[1], color=cols[i])
+                ax.fill_between(component[0], component[1], color=cols[i], alpha=1)
+                new_y = [-1 * k for k in component[1]]
+                ax.plot(component[0], new_y, color=cols[i])
+                ax.fill_between(component[0], new_y, color=cols[i], alpha=1)
 
             if xl:
                 ax.set_xlabel("z-coordinate (cm)")
@@ -1447,8 +1392,8 @@ def load_data(fil, direc=None, n_events=1e5, getQ=False):
             else:
                 break
 
-    expname = (ud.weights[exp])["Name"]
-    parts = [partn_names[part] for part in particles]
+    expname = (col.weights[exp])["Name"]
+    parts = [MuC.partn_names[part] for part in particles]
 
     particlenames = ", ".join(parts)
     t = comps.replace(",", ", ")
@@ -1487,8 +1432,8 @@ def get_weight(comp, p, exp, n_events):
     """Getting the weight of a genie particle from its detector component."""
     try:
         return (
-            (ud.weights[exp])["tc"]
-            * ((ud.weights[exp])[pdg2names[str(p)]])[comp]
+            (col.weights[exp])["total_count"]
+            * ((col.weights[exp])[MuC.pdg2names[str(p)]])[comp]
             / 100
             / n_events
         )  # the last factor depends on how many generated events there are in the files. It only supports same n files across detectors.

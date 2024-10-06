@@ -19,19 +19,37 @@ class LOmudecay_unpol(vg.BatchIntegrand):
         self.dim = dim
         self.MC_case = MC_case
 
+        # Find the normalization factor
+        self.norm = {}
+        self.norm["diff_rate"] = 1
+        self.norm["diff_decay_rate"] = 1
+        # normalize integrand with an initial throw
+        _throw = self.__call__(
+            np.random.rand(self.dim, 20000), np.ones((self.dim, 20000))
+        )
+        for key, val in _throw.items():
+            self.norm[key] = np.mean(val)
+            # cannot normalize zero integrand
+            if self.norm[key] == 0.0:
+                print(f"Warning: mean of integrand {key} is zero. Vegas may break.")
+                self.norm[key] = 1
+
     def __call__(self, x, jac):
+
         MC_case = self.MC_case
-
-        self.int_dic = OrderedDict()
-
         ######################################
         # mu -> e nu nu
-        i_var = 0 #0 is for the momentum pmu
+        i_var = 0  # 0 is for the momentum pmu
         pmu = MC_case.pmin + (MC_case.pmax - MC_case.pmin) * x[:, i_var]  # GeV
-        Emu = np.sqrt(MC_case.Mparent**2 + pmu**2)
-        i_var += 1 #1 is for the angle thetamu
-        thetamu = MC_case.tmin + (MC_case.tmax - MC_case.tmin) * x[:, i_var]
-        i_var += 1 #2 is for phase space tmax and tmin?
+        if np.min(pmu) <= 0:
+            raise ValueError("Found a negative or 0 momentum for muons, stopping.")
+
+        # Emu = np.sqrt(MC_case.Mparent**2 + pmu**2)
+        i_var += 1  # 1 is for the angle thetamu
+        thetamu = (
+            MC_case.theta_min + (MC_case.theta_max - MC_case.theta_min) * x[:, i_var]
+        )
+        i_var += 1  # 2 is for phase space theta_max and theta_min
 
         m1 = MC_case.Mparent
         m2 = MC_case.Mdaughter
@@ -50,21 +68,33 @@ class LOmudecay_unpol(vg.BatchIntegrand):
         u = (umax - umin) * x[:, i_var] + umin
         i_var += 1
 
-        v = np.sum(masses**2) - u - t
+        # v = np.sum(masses**2) - u - t
 
         c3 = (2.0) * x[:, i_var] - 1.0
         i_var += 1
         phi34 = (2.0 * np.pi) * x[:, i_var]
         i_var += 1
 
+        cphi34 = np.cos(phi34)
+        E3CM_decay = (m1**2 + m3**2 - u) / 2.0 / m1
+        E4CM_decay = (m1**2 + m4**2 - t) / 2.0 / m1
+        k3CM = const.kallen_sqrt(m1**2, u, m3**2) / 2.0 / m1
+        k4CM = const.kallen_sqrt(m1**2, t, m4**2) / 2.0 / m1
+        c34 = (t + u - m2**2 - m1**2 + 2 * E3CM_decay * E4CM_decay) / (2 * k3CM * k4CM)
+        #
+        c4 = c3 * c34 - np.sqrt(1.0 - c3 * c3) * np.sqrt(1.0 - c34 * c34) * cphi34
+
+        x2 = m2 / m1
+        x23 = t / m1**2
         dgamma = (
+            # const.Gf**2 * const.m_mu**5 / 16 / np.pi**3 * (1.0 - u / m1**2) * u / m1**2
             const.Gf**2
             * const.m_mu**5
             / 16
             / np.pi**3
-            * (1.0 - u / m1**2)
-            * u
-            / m1**2
+            * (1.0 - x23)
+            * (1 + c4 * MC_case.helicity)
+            * (x23 - x2**2)
         )
 
         # hypercube jacobian (vegas hypercube --> physical limits) transformation
@@ -76,14 +106,22 @@ class LOmudecay_unpol(vg.BatchIntegrand):
         ##########################
         # beam energy spread
         drate = dgamma * gauss_pdf(
-            Emu, MC_case.beam_p0, MC_case.beam_p0 * MC_case.beam_dpop
+            pmu, MC_case.beam_p0, MC_case.beam_p0 * MC_case.beam_dpop
         )
 
-        # beam angular spread
+        # # beam angular spread
         drate *= gauss_pdf(thetamu, MC_case.beam_theta0, MC_case.beam_dtheta)
 
+        ##############################################
+        # return all differential quantities of interest
+        self.int_dic = OrderedDict()
         self.int_dic["diff_rate"] = drate
         self.int_dic["diff_decay_rate"] = dgamma
+
+        ##############################################
+        # normalization
+        self.int_dic["diff_rate"] /= self.norm["diff_rate"]
+        self.int_dic["diff_decay_rate"] /= self.norm["diff_decay_rate"]
 
         return self.int_dic
 
@@ -112,7 +150,9 @@ def get_momenta_from_vegas_samples(vsamples, MC_case):
     # energy of projectile
     pP = (MC_case.pmax - MC_case.pmin) * np.array(vsamples[0]) + MC_case.pmin
     EP = np.sqrt(MC_case.Mparent**2 + pP**2)
-    thetaP = (MC_case.tmax - MC_case.tmin) * np.array(vsamples[1]) + MC_case.tmin
+    thetaP = (MC_case.theta_max - MC_case.theta_min) * np.array(
+        vsamples[1]
+    ) + MC_case.theta_min
     masses_decay = {
         "m1": MC_case.Mparent,
         "m2": MC_case.Mdaughter,
