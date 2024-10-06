@@ -779,7 +779,7 @@ class SimulateDetector:
 
         parts = [
             MuC.part_names[part[0]] + " events (" + part[1] + ")"
-            for part in col.colls_types_to_part[self.collision]
+            for part in col.colls_types_to_part[self.design['collision_type']]
         ]
 
         table = PrettyTable()
@@ -799,7 +799,8 @@ class SimulateDetector:
             table.add_row([name] + formatted_row)
 
         print("Event Distribution:\n", table)
-
+        return np.array(data)
+    
     def get_data(self, sec="all", part="all", genie=0):
         """Retrieving data from the sims object.
 
