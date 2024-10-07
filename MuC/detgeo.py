@@ -17,14 +17,6 @@ from MuC import detector_tools as det
 from MuC import collider_tools as col
 from MuC import xsecs
 
-# from memory_profiler import profile
-
-# @profile
-# def check_mem():
-#     """For memory-consuming-checking processes."""
-#     z = 1 + 2
-#     return
-
 
 def D3distance(point1, point2):
     """3D Euclidian distance between two points."""
@@ -633,7 +625,7 @@ class SimulateDetector:
 
         for i, part in enumerate(self.parts):
 
-            print(f"Simulating muon decays for {part}")
+            # print(f"Simulating muon decays for {part}")
             self.sims[i] = SimNeutrinos(
                 self.ccs[i], self.geom, part, MuC.directions[i]
             ).run()
@@ -651,10 +643,10 @@ class SimulateDetector:
             extra = " (numba pre-compilation needed)"
 
         self.name = self.design["name"]
-        print(f"Successfully simulated neutrino event rates within {self.geom.name}:")
-        print(
-            f"{self.name} ({col.acc_colls_dict[self.design['collision_type']]}) at L = {self.design['Lss']:.2f} m."
-        )
+        # print(f"Successfully simulated neutrino event rates within {self.geom.name}:")
+        # print(
+        # f"{self.name} ({col.acc_colls_dict[self.design['collision_type']]}) at L = {self.design['Lss']:.2f} m."
+        # )
         print(f"Total count: {self.total_count:.2e} events; took {t1:.3} s{extra}.\n")
 
         if show_components:
@@ -748,7 +740,7 @@ class SimulateDetector:
 
         print("Time Distribution:\n", table)
 
-    def get_face_counts(self, percentage=0):
+    def get_face_counts(self, percentage=0, print_table=True):
         """Prints the table of detailed distribution of events in detector components."""
 
         f = 1
@@ -779,7 +771,7 @@ class SimulateDetector:
 
         parts = [
             MuC.part_names[part[0]] + " events (" + part[1] + ")"
-            for part in col.colls_types_to_part[self.design['collision_type']]
+            for part in col.colls_types_to_part[self.design["collision_type"]]
         ]
 
         table = PrettyTable()
@@ -798,9 +790,11 @@ class SimulateDetector:
 
             table.add_row([name] + formatted_row)
 
-        print("Event Distribution:\n", table)
+        if print_table:
+            print("Event Distribution:\n", table)
+
         return np.array(data)
-    
+
     def get_data(self, sec="all", part="all", genie=0):
         """Retrieving data from the sims object.
 
