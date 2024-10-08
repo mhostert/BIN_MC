@@ -674,8 +674,10 @@ class MC_events(object):
         df_gen = create_df_from_vegas(four_momenta=four_momenta)
 
         # add weights to it
-        df_gen["w_flux"] = weights["diff_rate"]
-        df_gen["w_decay_rate"] = weights["diff_decay_rate"]
+        df_gen["w_flux"] = weights["diff_rate"] * batch_f.norm["diff_rate"]
+        df_gen["w_decay_rate"] = (
+            weights["diff_decay_rate"] * batch_f.norm["diff_decay_rate"]
+        )
 
         if self.save_mem:
             del weights

@@ -87,11 +87,17 @@ class LOmudecay_unpol(vg.BatchIntegrand):
         x2 = m2 / m1
         x23 = t / m1**2
         dgamma = (
-            # const.Gf**2 * const.m_mu**5 / 16 / np.pi**3 * (1.0 - u / m1**2) * u / m1**2
+            # const.Gf**2
+            # * const.m_mu
+            # / 256
+            # / np.pi**4
+            # * (1.0 - u / m1**2)
+            # * u
+            # / m1**2
             const.Gf**2
             * const.m_mu**5
-            / 16
-            / np.pi**3
+            / 256
+            / np.pi**5
             * (1.0 - x23)
             * (1 + c4 * MC_case.helicity)
             * (x23 - x2**2)
