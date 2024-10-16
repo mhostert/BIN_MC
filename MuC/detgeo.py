@@ -631,7 +631,6 @@ class SimulateDetector:
             ).run()
 
             self.sims[i].clear_mem()
-            # NOTE: Where is this factor of 2 coming from? Two beams? I dont get it.
             self.sims[i].w *= 2 / self.nsims
             self.sims[i].calculate_facecounts()
 
@@ -698,7 +697,12 @@ class SimulateDetector:
 
             sims[i] = SimNeutrinos(ccs[i], geom, part, MuC.directions[i])
             sims[i].find_info()
+
+            ########################################
+            # NOTE: Let's check this.
             sims[i].weights *= 2 / nsims
+            ########################################
+
             sims[i].get_lum_q(self.design)
 
         sims = [sims[i] for i in range(nsims)]

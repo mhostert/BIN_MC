@@ -385,55 +385,53 @@ class MuonDecay(object):
 
                                     compute all lengths, then assert all lengths are below sqrt(8 * Rdet**2 + det_height**2)
             """
+        # else:
+        #     # for linear
+        #     # X,Y,Z coordinates of mu decay
+        #     self.xmu = self.rvec_mu[:, 0]
+        #     self.ymu = self.rvec_mu[:, 1]
+        #     self.zmu = self.rvec_mu[:, 2]
 
-        else:
+        #     # distance to the detector
+        #     self.X_ND = R_ND[0]
+        #     self.Y_ND = R_ND[1]
+        #     self.Z_ND = R_ND[2]
 
-            # for linear
-            # X,Y,Z coordinates of mu decay
-            self.xmu = self.rvec_mu[:, 0]
-            self.ymu = self.rvec_mu[:, 1]
-            self.zmu = self.rvec_mu[:, 2]
+        #     # distance between plane of Z=Z_ND and the point of mu decay
+        #     self.Dzmu = self.Z_ND - self.zmu
 
-            # distance to the detector
-            self.X_ND = R_ND[0]
-            self.Y_ND = R_ND[1]
-            self.Z_ND = R_ND[2]
+        #     # v angles
+        #     # cosine of the azimuthal angle wrt to the Z direction (beam straight)
+        #     self.ctheta_numu = Cfv.get_cosTheta(self.pnumu)
+        #     self.ctheta_nue = Cfv.get_cosTheta(self.pnue)
+        #     self.ctheta_e = Cfv.get_cosTheta(self.pe)
 
-            # distance between plane of Z=Z_ND and the point of mu decay
-            self.Dzmu = self.Z_ND - self.zmu
+        #     self.ttheta_numu = np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu
+        #     self.ttheta_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue
+        #     self.ttheta_e = np.sqrt(1.0 - self.ctheta_e**2) / self.ctheta_e
 
-            # v angles
-            # cosine of the azimuthal angle wrt to the Z direction (beam straight)
-            self.ctheta_numu = Cfv.get_cosTheta(self.pnumu)
-            self.ctheta_nue = Cfv.get_cosTheta(self.pnue)
-            self.ctheta_e = Cfv.get_cosTheta(self.pe)
+        #     # polar angle with Y=0 plane being the ground/plane of the racetrack.
+        #     self.phi_numu = np.arctan2(self.pnumu[:, 2], self.pnumu[:, 1])
+        #     self.phi_nue = np.arctan2(self.pnue[:, 2], self.pnue[:, 1])
+        #     self.phi_e = np.arctan2(self.pe[:, 2], self.pe[:, 1])
 
-            self.ttheta_numu = np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu
-            self.ttheta_nue = np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue
-            self.ttheta_e = np.sqrt(1.0 - self.ctheta_e**2) / self.ctheta_e
+        #     # X and Y coordinates of the intersection between pnu and the plane Z=Z_ND
+        #     self.Y_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.sin(
+        #         self.phi_numu
+        #     )
+        #     self.X_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.cos(
+        #         self.phi_numu
+        #     )
+        #     self.Y_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.sin(self.phi_nue)
+        #     self.X_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.cos(self.phi_nue)
 
-            # polar angle with Y=0 plane being the ground/plane of the racetrack.
-            self.phi_numu = np.arctan2(self.pnumu[:, 2], self.pnumu[:, 1])
-            self.phi_nue = np.arctan2(self.pnue[:, 2], self.pnue[:, 1])
-            self.phi_e = np.arctan2(self.pe[:, 2], self.pe[:, 1])
-
-            # X and Y coordinates of the intersection between pnu and the plane Z=Z_ND
-            self.Y_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.sin(
-                self.phi_numu
-            )
-            self.X_intersec_numu = (self.ttheta_numu * self.Dzmu) * np.cos(
-                self.phi_numu
-            )
-            self.Y_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.sin(self.phi_nue)
-            self.X_intersec_nue = (self.ttheta_nue * self.Dzmu) * np.cos(self.phi_nue)
-
-            # radius of the ring defined by the intersection of the neutrino momentum and the plane Z=Z_ND
-            self.dR_numu = (
-                np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
-            )
-            self.dR_nue = (
-                np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
-            )
+        #     # radius of the ring defined by the intersection of the neutrino momentum and the plane Z=Z_ND
+        #     self.dR_numu = (
+        #         np.sqrt(1.0 - self.ctheta_numu**2) / self.ctheta_numu * self.Dzmu
+        #     )
+        #     self.dR_nue = (
+        #         np.sqrt(1.0 - self.ctheta_nue**2) / self.ctheta_nue * self.Dzmu
+        #     )
 
     def flux_in_detector(
         self, DIM_ND=[3e2, 3e2, 3e2], NBINS=100, acceptance=False, circular=False
