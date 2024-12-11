@@ -1,0 +1,14 @@
+#: table_doi: 10.17182/hepdata.15709.v1/t3
+#: name: Table 3
+#: description: No description provided.
+#: data_file: Table3.yaml
+#: keyword reactions: NU NUCLEON --> MU- X
+#: keyword observables: SIG
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: keyword cmenergies: 13.729-19.393
+#: P [GEV],,,100. TO 200.
+#: RE,,,NU NUCLEON --> MU- X
+#: SQRT(S) [GeV],,,13.729-19.393
+P [GEV],P [GEV] LOW,P [GEV] HIGH,SIG/E [CM**2/GEV/NUCLEON],stat +,stat -,sys +,sys -
+150.0,100.0,200.0,6.86e-39,2e-41,-2e-41,1.9e-40,-1.9e-40
+

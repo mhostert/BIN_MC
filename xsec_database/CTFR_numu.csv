@@ -1,0 +1,18 @@
+#: table_doi: 10.17182/hepdata.50102.v1/t1
+#: name: Table 1
+#: description: No description provided.
+#: data_file: Table1.yaml
+#: keyword reactions: NUMU NUCLEON --> MU- X
+#: keyword observables: SIG
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: keyword cmenergies: 9.256-19.633
+#: RE,NUMU NUCLEON --> MU- X
+#: SQRT(S) [GeV],9.256-19.633
+E [GEV],SIG [CM**2],error +,error -,"sys,Not included +","sys,Not included -"
+45.2,3.01e-37,2e-38,-2e-38,4.0%,-4.0%
+61.3,3.53e-37,1.8e-38,-1.8e-38,4.0%,-4.0%
+72.4,4.44e-37,3e-38,-3e-38,4.0%,-4.0%
+125.0,7.63e-37,9.3e-38,-9.3e-38,4.0%,-4.0%
+171.0,1.092e-36,7.6e-38,-7.6e-38,4.0%,-4.0%
+205.0,1.224e-36,9.8e-38,-9.8e-38,4.0%,-4.0%
+

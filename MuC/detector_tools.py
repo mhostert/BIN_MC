@@ -1,27 +1,38 @@
-import copy
 import numpy as np
-
 from numba import njit
+<<<<<<< HEAD
+
+from DarkNews import const
+=======
 from scipy.optimize import bisect
+from scipy.integrate import cumtrapz
+from scipy.interpolate import interp1d
+>>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
 
 # from memory_profiler import profile
 
-from DarkNews import Cfourvec as Cfv
 
+<<<<<<< HEAD
+class Component:
+    """A detector component. Its density is the number of targets density."""
+=======
 
 AVOGADRO = 6.02214e23
 MASS_NUCLEON = 939e6 * 1.6e-19 / (3e8) ** 2 * 10**3  # g
 LIGHT_SPEED = 2.998e10  # cm/s
+ry_max = 1434.4  # m
+total_arc_length = 9851.838522846553
 
 
 class face:
     """A detector component. Misnamed. Its density is the number of targets density."""
+>>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
 
     def __init__(self, density):
         self.density = density  # density in which they're going
 
 
-class cap:
+class BarrelCap:
     """These are the ones sitting on a z plane"""
 
     def __init__(
@@ -40,7 +51,7 @@ class cap:
         return cap_check_i(self.zpos, self.rbeg, self.rend, position, momenta, mask)
 
 
-class barrel:
+class Barrel:
     """These are cylindrical around a z line; usually both sides are included as separate faces"""
 
     def __init__(self, parent, id, next_ids, rpos, zbeg, zend):
@@ -55,7 +66,7 @@ class barrel:
         indices = np.where(mask)[
             0
         ]  # array of indices of particles that we will consider
-        a, b, c = barrel_get_pols(self.rpos, position[indices], momenta[indices])
+        a, b, c = barrel_get_polynomial(self.rpos, position[indices], momenta[indices])
         info = get_sols(
             a, b, c, self.zbeg, self.zend, position[mask], momenta[mask], mask
         )
@@ -63,7 +74,7 @@ class barrel:
         return info[0], info[1]
 
 
-class conic:
+class Conic:
     """These are cones centered on a z line"""
 
     def __init__(self, parent, id, next_ids, tan_theta, zbeg, zend, rsmall, direction):
@@ -83,7 +94,7 @@ class conic:
             self.zcenter = zbeg - rsmall / tan_theta
 
     def check_intersection(self, position, momenta, mask):
-        a, b, c = conic_get_pols(
+        a, b, c = conic_get_polynomial(
             self.zcenter, self.tan_theta, position[mask], momenta[mask]
         )
         info = get_sols(
@@ -93,7 +104,7 @@ class conic:
         return info[0], info[1]
 
 
-class initializer:
+class InitialFaces:
     """These are the first components a particle will encounter. Since they are all on the same plane (caps), I figured it's easier to compute once than to check at each time."""
 
     def __init__(self, parent, id, next_ids, rsmall, rbig):
@@ -110,7 +121,7 @@ class initializer:
         return indices[np.where(new_mask)[0]]
 
 
-class decayer:
+class MuonContainer:
     """These are the parts within which particles decaying in the detector would be. Supposed to only be beampipe, but in completely circular approximation might be nozzles."""
 
     def __init__(self, parent, id, next_ids, last):
@@ -150,7 +161,7 @@ def cap_check_i(zpos, rbeg, rend, position, momenta, mask):
 
 
 @njit
-def barrel_get_pols(rpos, position, momenta):
+def barrel_get_polynomial(rpos, position, momenta):
     """Polynomial coefficients of a cylinder with a line."""
     a = (momenta[:, 0]) ** 2 + (momenta[:, 1]) ** 2
     b = 2 * (position[:, 0] * momenta[:, 0] + position[:, 1] * momenta[:, 1])
@@ -160,7 +171,7 @@ def barrel_get_pols(rpos, position, momenta):
 
 
 @njit
-def conic_get_pols(zcenter, tan_theta, position, momenta):
+def conic_get_polynomial(zcenter, tan_theta, position, momenta):
     """Polynomial coefficients of a cone with a line."""
     delta_z = zcenter - position[:, 2]
     a = -1 * momenta[:, 2] ** 2 * tan_theta**2 + momenta[:, 1] ** 2 + momenta[:, 0] ** 2
@@ -228,18 +239,21 @@ def get_sols(a, b, c, zbeg, zend, position, momenta, mask):
     return kept_indices, ip
 
 
+<<<<<<< HEAD
+class Material:
+=======
 class cc:
     """Instance of a coordinate container (?). Holds all necessary information
     relating to the Monte Carlo muon decay simulation, and of the storage ring geometry
     """
 
-    def __init__(self, C, w, sample_size, N_mu, pnumu, pnue, pos, name, Emu):
+    def __init__(self, C, w, sample_size, Nmu_per_bunch, pnumu, pnue, pos, name, Emu):
         self.name = name
         self.C = C
         nw = np.copy(w)
         self.weights = nw / np.sum(nw)
         self.sample_size = sample_size
-        self.Nmu = N_mu
+        self.Nmu_per_bunch = Nmu_per_bunch
         self.p = pos
         self.pnumu = pnumu
         self.pnue = pnue
@@ -250,6 +264,7 @@ class cc:
     # @profile
     def straight_segment_at_detector(self, zlength, Lss, two=False):
         """Changes the coordinate axis, position, and momenta of particles to fit a storage ring geometry.
+        zlength is the length of the detector on one side.
         Lss = -1 means that the cc object has already been transformed."""
         sim = copy.deepcopy(self)
         # print(sim.C)
@@ -324,9 +339,68 @@ class cc:
 
         return sim, None
 
+    def parametrized_curve(self, zlength, Lss, two=False, smoother=25):
+        # already have self.name, self.C (need to change), self.weights, self.sample_size, self.Nmu, self.p (position), self.pnumu (4M), self.pnue, self.vmu
+        self.C = total_arc_length * 100
+
+        sim = copy.deepcopy(self)
+
+        if Lss == -1:
+            return sim
+        elif not ((Lss <= 400) & (Lss >= 75)):
+            raise ValueError(
+                "The only possible striaght segment values for the parametrized curve are 75-400 m."
+            )
+        Lss = 100 * Lss  # cm
+        sim.L = Lss
+        factor = 0
+
+        if two:
+            factor = sim.C / 2
+
+        t_values = (sim.p[:, 2] + factor) % sim.C  # not translated yet
+
+        # reduces computation; nothing to do with straight segment yet
+        mask = (t_values < total_arc_length * 100 / 4) | (t_values > sim.C -1 * zlength * 2)
+
+        # straight segment stuff is hidden within parametric_position_by_t_array; Lss is in cm already
+        sim.p[mask, :] = parametric_position_by_t_array(t_values[mask], Lss, smoother)
+
+        phis = get_theta_for_p_rotation(t_values[mask], Lss, smoother)
+
+        sim.pnumu[mask, :] = Cfv.rotationx(sim.pnumu[mask], -1 * phis)
+        sim.pnue[mask, :] = Cfv.rotationx(sim.pnue[mask], -1 * phis)
+
+        # for mltd
+        mltd = np.empty(sim.sample_size)
+        mltd[t_values < sim.C / 2] = t_values[t_values < sim.C / 2]
+        mltd[t_values > sim.C / 2] = -1*sim.C + t_values[t_values > sim.C / 2]
+
+        mask_acc = mask
+        sim.p = sim.p[mask_acc]
+        sim.pnumu = sim.pnumu[mask_acc]
+        sim.pnue = sim.pnue[mask_acc]
+        sim.weights = sim.weights[mask_acc]
+        sim.sample_size = np.sum(mask_acc)
+        sim.times = mltd[mask_acc] / self.vmu[mask_acc]
+
+        if two:
+            sim2, _ = self.parametrized_curve(zlength, Lss=Lss / 100, two=False)
+            return sim, sim2
+
+        return sim, None
+
     def clear_mem(self):
         """Freeing memory at the end of a sim, if necessary"""
-        deletables = ["Racc", "p", "pnumu", "pnue", "weights", "sample_size", "Nmu"]
+        deletables = [
+            "Racc",
+            "p",
+            "pnumu",
+            "pnue",
+            "weights",
+            "sample_size",
+            "Nmu_per_bunch",
+        ]
         for att in deletables:
 
             if hasattr(self, att):
@@ -343,64 +417,194 @@ class material:
 
 
 class subs(material):
+>>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     """Pure substances; periodic elements."""
 
     def __init__(self, density, am, A, Z):
-        super().__init__()
         self.density = density
         self.am = am
         self.Z = Z
         self.A = A
-        nq = AVOGADRO * self.density / self.am
+        nq = const.NAvo * self.density / self.am
         self.N = nq * self.A
         self.e = nq * self.Z
 
 
-class comp(material):
-    """Compositions of periodic elements."""
-
+class CompositMaterial:
     def __init__(self, table):
-        super().__init__()
-
-        for row in table:
-            self.density += row[0].density * row[1]
-            self.N += (
-                row[0].N * row[1]
-            )  # row[0] is N of an element; row[1] is the percentage of it that occupies the total material
-            self.e += row[0].e * row[1]
-
-
-class unif(material):
-    """Alloys/compositions of uniform densities."""
-
-    def __init__(self, density):
-        super().__init__()
-        self.density = density
-        self.N = self.density / MASS_NUCLEON
-        self.e = self.N / 2
+        """Compositions of materials.
+        fraction is the percentage of it that occupies the total material
+        """
+        self.density = 0
+        self.N = 0
+        self.e = 0
+        for material, fraction in table:
+            self.density += material.density * fraction
+            self.N += material.N * fraction
+            self.e += material.e * fraction
 
 
-def to_opt(x, K):
-    """Optimizing provides root for transformed radius, R', of storage ring for nonzero Lss."""
-    return np.sin(x) - K * (np.pi - x)
+# class unif(Material):
+#     """Alloys/compositions of uniform densities."""
+
+#     def __init__(self, density):
+#         super().__init__()
+#         self.density = density
+#         self.N = self.density / (const.m_avg / const.g_to_GeV)
+#         self.e = self.N / 2
 
 
 # Pre-defined substances
 
 # density in g/cm**3; atomic mass in g/mol
-Si = subs(2.329, 28.0855, 28, 14)
-WSi2 = subs(9.3, 240.01, 240, 102)
-Fe = subs(7.874, 55.845, 56, 26)
-Al = subs(2.7, 26.981539, 27, 13)
-W = subs(19.3, 183.84, 184, 74)
-Cu = subs(8.96, 63.546, 64, 29)
-PS = subs(1.05, 104.1, 104, 56)
+Si = Material(2.329, 28.0855, 28, 14)
+WSi2 = Material(9.3, 240.01, 240, 102)
+Fe = Material(7.874, 55.845, 56, 26)
+Al = Material(2.7, 26.981539, 27, 13)
+W = Material(19.3, 183.84, 184, 74)
+Cu = Material(8.96, 63.546, 64, 29)
+PS = Material(1.05, 104.1, 104, 56)
 
 # from CLICdet paper
-hcal_CLICdet = comp(
+hcal_CLICdet = CompositMaterial(
     [[Fe, 20 / 26.5], [Al, 0.7 / 26.5], [Cu, 0.1 / 26.5], [PS, 3 / 26.5]]
 )
-ecal_CLICdet = comp([[W, 1.9 / 5.05], [Cu, 2.3 / 5.05], [Si, 0.5 / 5.05]])
+ecal_CLICdet = CompositMaterial([[W, 1.9 / 5.05], [Cu, 2.3 / 5.05], [Si, 0.5 / 5.05]])
 
+<<<<<<< HEAD
+OinAir = Material(1.225e-3, 15.9994, 16, 8)  # air density in g/cm**3
+NinAir = Material(1.225e-3, 14.0067, 14, 7)
+ArinAir = Material(1.225e-3, 39.95, 40, 18)
+Air = CompositMaterial(
+    [
+        [OinAir, 0.2095],
+        [NinAir, 0.7812],
+        [ArinAir, 0.0093],
+    ]
+)
+=======
 # from online
 EARTH_DENSITY = unif(5.51).N
+
+
+# Precompute func_radius for all theta values
+def func_radius(theta):
+    """This is the regular parametrization; straight segment comes after. DO NOT CHANGE unless altering the actual curve parametrization."""
+    radius = 1630
+    matching_angular_distance = 25 / 180 * np.pi
+    tan_theta = np.abs(np.tan(theta))
+    condition = tan_theta > np.tan(matching_angular_distance)
+    arc_tan_value = np.where(condition, np.arctan(tan_theta), matching_angular_distance)
+    result = (
+        (arc_tan_value - matching_angular_distance)
+        / (np.pi / 2 - matching_angular_distance)
+        * (np.pi / 2)
+    )
+    return radius + (-radius * 1.2 / 10) * np.sin(result) ** 2
+
+
+# Derivatives of x(θ) and y(θ) for arc length calculation
+def dx_dtheta(theta, func_radius_vals):
+    return -func_radius_vals * np.sin(theta) + np.cos(theta) * np.gradient(
+        func_radius_vals, theta
+    )
+
+
+def dy_dtheta(theta, func_radius_vals):
+    return func_radius_vals * np.cos(theta) + np.sin(theta) * np.gradient(
+        func_radius_vals, theta
+    )
+
+
+theta = np.linspace(0, 2 * np.pi, 5000)  # Increase resolution for smooth interpolation
+func_radius_vals = func_radius(theta)
+# Calculate ds, arc length as a function of θ
+ds = np.sqrt(
+    dx_dtheta(theta, func_radius_vals) ** 2 + dy_dtheta(theta, func_radius_vals) ** 2
+)
+arc_length = cumtrapz(ds, theta, initial=0)
+
+# Interpolate to get θ from arc length
+theta_of_s = interp1d(
+    arc_length, theta, bounds_error=False, fill_value="extrapolate"
+)  # this input is in meters!
+
+
+# Optimized function that takes a 1D array of t values and returns an array of coordinates
+def parametric_position_by_t_array(t_values, Lss, smoother=25):
+
+    t_values += total_arc_length * 100 / 4  # to start it at 0,0,0
+    # print(arc_length[-1]) for total arc length
+    # Ensure t_values are within the correct range [0, total_arc_length]; they are provided as cm though! Internally, deal with them as m.
+
+    t_values_clipped = t_values / 100 % total_arc_length  # this is in meters
+
+    # Get corresponding θ values for the given t_values
+    theta_t = theta_of_s(t_values_clipped)  # this input is in meters!
+
+    # Compute x_t and y_t for each θ
+    x_t = func_radius(theta_t) * np.cos(theta_t)
+    y_t = func_radius(theta_t) * np.sin(theta_t)
+
+    # let's make the straight section here (flattening out the curve; overdense by about 5 cm for Lss = 200 m; more study about the actual effect of the contraction at larger LSS (400m) needs to be done.):
+
+    # Note that these thetas take t = 0 to be pi/2.
+    a1, a2, Rr, b1, b2 = sss(Lss, smoother)
+
+    mask_ss = (theta_t < a2) & (theta_t > a1)
+
+    # Translation by ry_max (assumed to be constant)
+    result = np.column_stack([np.zeros_like(x_t), 100 * (y_t - ry_max), 100 * x_t])
+
+    result[mask_ss, 1] = 0
+    result[~mask_ss, 1] -= Rr * 100
+
+    # smoothening mask
+    mask_sm = (theta_t > b1) & (theta_t < b2)
+    cc = smooth(theta_t[mask_sm], Lss, Rr, b1, b2, smoother)
+    result[mask_sm, 1] = cc[1]
+    result[mask_sm, 2] = cc[0]
+
+    return result
+
+
+def get_theta_for_p_rotation(t_values, Lss, smoother=25, dt=1):
+    # note that the t parameter goes counterclockwise; our muons go clockwise. So, our momentum rotation needs to be treated carefully.
+    xf = parametric_position_by_t_array(t_values - dt / 2, Lss, smoother)
+    xi = parametric_position_by_t_array(t_values + dt / 2, Lss, smoother)
+    phi = np.arctan2(
+        (xf[:, 1] - xi[:, 1]), (xf[:, 2] - xi[:, 2])
+    )  # these are the rotation phis (rotation clockwise about x) for momentum.
+    return phi
+
+
+def smooth(thetas, Lss, Rr, b1, b2, smoother=25):
+    """Have to generalize this. How?..."""
+    yf = (func_radius(b2) * np.sin(b2) - ry_max) * 100 - Rr * 100
+    L = Lss / 2
+    a = yf / 4 / (smoother * 100) ** 2
+    b = 2 * a * (-1 * smoother * 100 + L)
+    c = a * (L - smoother * 100) ** 2
+    x0 = func_radius(b1) * np.cos(b1) * 100
+    xf = func_radius(b2) * np.cos(b2) * 100
+    interpx = np.linspace(x0, xf, 100)
+    interpy = a * interpx**2 + b * interpx + c
+    smoothener = interp1d(
+        interpx, interpy, kind="linear", bounds_error=False, fill_value="extrapolate"
+    )
+    xs = (thetas - b1) / (b2 - b1) * (xf - x0) + x0
+    ys = smoothener(xs)
+    return xs, ys
+
+
+def sss(Lss, smoother=25):
+    """Straight segment shenanigans; input Lss is in cm"""
+
+    a1 = theta_of_s(-Lss / 200 + total_arc_length / 4)
+    a2 = theta_of_s(Lss / 200 + total_arc_length / 4)
+    b1 = theta_of_s(Lss / 200 - smoother + total_arc_length / 4)
+    b2 = theta_of_s(Lss / 200 + smoother + total_arc_length / 4)
+    Rr = func_radius(a2) * np.sin(a2) - ry_max
+
+    return a1, a2, Rr, b1, b2
+>>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929

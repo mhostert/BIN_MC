@@ -1,0 +1,13 @@
+#: table_doi: 10.17182/hepdata.15709.v1/t4
+#: name: Table 4
+#: description: No description provided.
+#: data_file: Table4.yaml
+#: keyword reactions: NUBAR NUCLEON --> MU+ X
+#: keyword observables: SIG
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: keyword cmenergies: 13.729
+#: RE,,,NUBAR NUCLEON --> MU+ X
+#: SQRT(S) [GeV],,,13.729
+P [GEV],P [GEV] LOW,P [GEV] HIGH,SIG/E [CM**2/GEV/NUCLEON],stat +,stat -,sys +,sys -
+150.0,100.0,200.0,3.39e-39,3e-41,-3e-41,9e-41,-9e-41
+

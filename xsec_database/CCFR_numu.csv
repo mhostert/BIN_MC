@@ -1,0 +1,29 @@
+#: table_doi: 10.17182/hepdata.37291.v1/t1
+#: name: Table 1
+#: description: The cross sections are normalized to the world average of SIG(NUMU)/E/A = 0.677E-38 cm^2/GeV as no absolute flux measurement was made in this experiment.
+#: 
+#: data_file: Table1.yaml
+#: keyword reactions: NUMU FE --> MU- X | NUMU NUCLEUS --> MU- X
+#: keyword observables: SIG/A/E
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: RE,NUMU FE --> MU- X
+#: SYS,Due to event selection criteria
+E(P=1) [GEV],SIG/E/A [PB/GEV],stat +,stat -,sys +,sys -
+35.0,0.00694,9e-05,-9e-05,0.00011,-0.00011
+45.0,0.00681,7e-05,-7e-05,9e-05,-9e-05
+55.0,0.00683,6e-05,-6e-05,8e-05,-8e-05
+65.0,0.00681,6e-05,-6e-05,8e-05,-8e-05
+75.0,0.00672,6e-05,-6e-05,8e-05,-8e-05
+85.0,0.00672,6e-05,-6e-05,8e-05,-8e-05
+95.0,0.00668,7e-05,-7e-05,8e-05,-8e-05
+110.0,0.00682,6e-05,-6e-05,9e-05,-9e-05
+130.0,0.00677,8e-05,-8e-05,9e-05,-9e-05
+150.0,0.0068,9e-05,-9e-05,0.0001,-0.0001
+170.0,0.00673,9e-05,-9e-05,9e-05,-9e-05
+190.0,0.00657,9e-05,-9e-05,9e-05,-9e-05
+215.0,0.00644,7e-05,-7e-05,8e-05,-8e-05
+245.0,0.0065,9e-05,-9e-05,0.00011,-0.00011
+275.0,0.00646,0.00011,-0.00011,0.00012,-0.00012
+305.0,0.00655,0.00015,-0.00015,0.00015,-0.00015
+340.0,0.00656,0.00017,-0.00017,0.00016,-0.00016
+

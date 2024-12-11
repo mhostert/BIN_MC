@@ -1,0 +1,27 @@
+#: table_doi: 10.17182/hepdata.20507.v1/t1
+#: name: Table 1
+#: description: No description provided.
+#: data_file: Table1.yaml
+#: keyword reactions: NU NUCLEON --> X
+#: keyword observables: SIG
+#: keyword phrases: Exclusive | Integrated Cross Section | Cross Section
+#: keyword cmenergies: 8.271-20.703
+#: RE,NU NUCLEON --> X
+#: SQRT(S) [GeV],8.271-20.703
+E [GEV],SIG/E [CM**2/GEV],error +,error -
+36.0,6.55e-39,2.5e-40,-2.5e-40
+45.0,6.23e-39,2.5e-40,-2.5e-40
+52.0,6.57e-39,3e-40,-3e-40
+62.0,6.64e-39,3.4e-40,-3.4e-40
+74.0,6.64e-39,3.4e-40,-3.4e-40
+89.0,6.41e-39,5.9e-40,-5.9e-40
+110.0,6.57e-39,6.7e-40,-6.7e-40
+124.0,6.63e-39,4.2e-40,-4.2e-40
+140.0,6.94e-39,5.2e-40,-5.2e-40
+156.0,6.83e-39,4.2e-40,-4.2e-40
+163.0,7.15e-39,4.2e-40,-4.2e-40
+179.0,7.27e-39,4.2e-40,-4.2e-40
+189.0,7.51e-39,3.9e-40,-3.9e-40
+212.0,7.08e-39,5.2e-40,-5.2e-40
+228.0,7.57e-39,5.9e-40,-5.9e-40
+

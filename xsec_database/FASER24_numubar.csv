@@ -1,0 +1,13 @@
+#: table_doi: https://arxiv.org/abs/2412.03186
+#: name: FASER24
+#: description: No description provided.
+#: data_file:
+#: keyword reactions: NUMUBAR NUCLEON --> MU+ X
+#: keyword observables: SIG
+#: keyword phrases: 
+#: keyword cmenergies: 
+#: 
+#: 
+E [GEV],E [GEV] LOW,E [GEV] HIGH,SIG/E [CM**2/GEV],error +,error -
+1.80781792e+2,1e+2,3e+2,3.69763917e-1,5.50257585e-1,1.90628873e-1 
+5.26096044e+2,3e+2,1e+3,2.85535675e-1,3.77883988e-1,1.96088819e-1 

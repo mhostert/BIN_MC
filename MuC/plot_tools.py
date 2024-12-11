@@ -39,8 +39,10 @@ matplotlib.rcParams["hatch.linewidth"] = 0.3
 rcParams.update(rcparams)
 
 cblind_safe_wheel = [
-    "#377eb8",
-    "#ff7f00",
+    "#3f90da",
+    "#ffa90e",
+    "#bd1f01",
+    "#94a4a2",
     "#4daf4a",
     "#f781bf",
     "#a65628",
@@ -459,3 +461,229 @@ class MulticolorPatchHandler(object):
 
         handlebox.add_artist(patch)
         return patch
+
+
+def plot_det(geom, ax, orientation="z-y", xl=True, yl=True):
+    """Plots the detector geometry behind a sim plot."""
+
+    if geom == "det_v1":
+        T1 = [[-231, 231, 231, 28, -28, -231, -231], [150, 150, 24, 3, 3, 24, 150]]
+
+        ECAL1 = [[-231, -231, 231, 231, -231], [150, 170, 170, 150, 150]]
+        ECAL2 = [[231, 231, 251, 251, 231], [24, 170, 170, 26, 24]]
+        ECAL3 = [[-1 * i for i in ECAL2[0]], ECAL2[1]]
+
+        HCAL1 = [[-251, -251, 251, 251, -251], [170, 348, 348, 170, 170]]
+        HCAL2 = [[251, 251, 418, 418, 251, 251, 251], [170, 348, 348, 43, 26, 170, 170]]
+        HCAL3 = [[-1 * i for i in HCAL2[0]], HCAL2[1]]
+
+        SOLENOID = [[-418, -418, 418, 418, -418], [348, 446, 446, 348, 348]]
+
+        MD1 = [[-418, -418, 418, 418, -418], [446, 645, 645, 446, 446]]
+        MD2 = [[418, 418, 564, 564, 418], [43, 645, 645, 58, 43]]
+        MD3 = [[-1 * i for i in MD2[0]], MD2[1]]
+
+        CONE1 = [[28, 564, 564, 28], [3, 58, 3, 3]]
+        CONE2 = [[-1 * i for i in CONE1[0]], CONE1[1]]
+
+        BL = [[-564, -564, 564, 564, -564], [-3, 3, 3, -3, -3]]
+
+        components = [
+            T1,
+            ECAL1,
+            ECAL2,
+            ECAL3,
+            HCAL1,
+            HCAL2,
+            HCAL3,
+            SOLENOID,
+            MD1,
+            MD2,
+            MD3,
+            CONE1,
+            CONE2,
+            BL,
+        ]
+        cols = (
+            ["lightgrey"] * 1
+            + ["dimgrey"] * 3
+            + ["grey"] * 3
+            + ["darkgrey"]
+            + 3 * ["grey"]
+            + ["black"] * 2
+            + ["white"]
+        )
+
+        for i, component in enumerate(components):
+            ax.plot(component[0], component[1], color=cols[i], lw=0.5)
+            ax.fill_between(component[0], component[1], color=cols[i], alpha=0.7)
+            new_y = [-1 * k for k in component[1]]
+            ax.plot(component[0], new_y, color=cols[i], lw=0.5)
+            ax.fill_between(component[0], new_y, color=cols[i], alpha=0.7)
+
+        ax.set_xlabel("z-coordinate (cm)")
+        ax.set_ylabel("r-coordinate (cm)")
+
+    elif (geom == "det_v2") | (geom == "zero_density_test"):
+
+        if orientation == "x-y" or orientation == "y-x":
+            MDET = 645
+            SPS1 = 446.1
+            SOL_1 = 429
+            SPS2 = 425
+            SOL_2 = 399.3
+            SPS3 = 364.9
+            SOL_3 = 352.3
+            SPS4 = 348.3
+            HCAL = 333
+            SPS5 = 174
+            ECAL = 170.2
+            SPS6 = 150
+            CONE = 31
+            BL = 2.2
+            components = [
+                MDET,
+                SPS1,
+                SOL_1,
+                SPS2,
+                SOL_2,
+                SPS3,
+                SOL_3,
+                SPS4,
+                HCAL,
+                SPS5,
+                ECAL,
+                SPS6,
+                CONE,
+                BL,
+            ]
+            cols = [
+                "grey",
+                "white",
+                "gray",
+                "white",
+                "lightgrey",
+                "white",
+                "gray",
+                "white",
+                "darkgrey",
+                "white",
+                "dimgrey",
+                "white",
+                "black",
+                "white",
+            ]
+
+            for i, component in enumerate(components):
+                circle = plt.Circle(
+                    (0, 0),
+                    component,  # NOTE: det??
+                    zorder=i / len(components),
+                    alpha=1,
+                    edgecolor=cols[i],
+                    facecolor=cols[i],
+                )
+                ax.add_artist(circle)
+
+            ax.scatter(MDET, MDET, color=cols[3])
+            ax.scatter(MDET, MDET, color=cols[3])
+            ax.scatter(MDET, MDET, color=cols[3])
+            ax.scatter(MDET, MDET, color=cols[3])
+
+            if orientation == "y-x":
+                ax.set_ylim(-1 * 645 * 10 / 12, 645 * 10 / 12)
+                ax.set_xlim(0, 645)
+            elif orientation == "x-y":
+                ax.set_xlim(-1 * 645 * 10 / 12, 645 * 10 / 12)
+                ax.set_ylim(0, 645)
+
+            if xl:
+                ax.set_xlabel("x-coordinate (cm)")
+
+            if yl:
+                ax.set_ylabel("y-coordinate (cm)")
+
+        else:
+            ECAL1 = [[-221, -221, 221, 221, -221], [150, 170.2, 170.2, 150, 150]]
+            ECAL2 = [[230.7, 230.7, 250.9, 250.9, 230.7], [31, 170, 170, 33.9, 31]]
+            ECAL3 = [[-1 * i for i in ECAL2[0]], ECAL2[1]]
+
+            HCAL1 = [[-221, -221, 221, 221, -221], [174, 333, 333, 174, 174]]
+            HCAL2 = [
+                [235.4, 235.4, 412.9, 412.9, 250.9, 250.9, 235.4],
+                [170, 324.6, 324.6, 56.8, 33.9, 170, 170],
+            ]
+            HCAL3 = [[-1 * i for i in HCAL2[0]], HCAL2[1]]
+
+            SOLENOID = [
+                [-412.9, -412.9, 412.9, 412.9, -412.9],
+                [348.3, 352.3, 352.3, 348.3, 348.3],
+            ]
+            SOLENOID_2 = [
+                [-412.9, -412.9, 412.9, 412.9, -412.9],
+                [364.9, 399.3, 399.3, 364.9, 364.9],
+            ]
+            SOLENOID_3 = [
+                [-412.9, -412.9, 412.9, 412.9, -412.9],
+                [425, 429, 429, 425, 425],
+            ]
+
+            MD1 = [
+                [-563.8, -563.8, 563.8, 563.8, 417.9, 417.9, -417.9, -417.9, -563.8],
+                [78.2, 645, 645, 78.2, 57.5, 446.1, 446.1, 57.5, 78.2],
+            ]
+
+            CONE1 = [
+                [6.5, 230.7, 250.9, 412.9, 417.9, 563.8, 563.8, 6.5],
+                [2.2, 31, 33.9, 56.8, 57.5, 78.2, 2.2, 2.2],
+            ]
+            CONE2 = [[-1 * i for i in CONE1[0]], CONE1[1]]
+
+            BL = [[-563.8, -563.8, 563.8, 563.8, -563.8], [-2.2, 2.2, 2.2, -2.2, -2.2]]
+
+            components = [
+                ECAL1,
+                ECAL2,
+                ECAL3,
+                HCAL1,
+                HCAL2,
+                HCAL3,
+                SOLENOID,
+                SOLENOID_2,
+                SOLENOID_3,
+                MD1,
+                CONE1,
+                CONE2,
+                BL,
+            ]
+            cols = (
+                ["dimgrey"] * 3
+                + ["darkgrey"] * 3
+                + ["gray"]
+                + ["lightgrey"]
+                + ["gray"]
+                + ["grey"]
+                + ["black"] * 2
+                + ["white"]
+            )
+
+            for i, component in enumerate(components):
+                # ax.plot(component[0], component[1], color=cols[i], lw=0.5)
+                ax.fill_between(
+                    component[0], component[1], color=cols[i], alpha=1, lw=0.1
+                )
+                new_y = [-1 * k for k in component[1]]
+                # ax.plot(component[0], new_y, color=cols[i], lw=0.5)
+                ax.fill_between(component[0], new_y, color=cols[i], alpha=1, lw=0.1)
+
+            if xl:
+                ax.set_xlabel("z-coordinate (cm)")
+
+            if yl:
+                ax.set_ylabel("y-coordinate (cm)")
+
+            # ax.set_xlim(-564, 564)
+            # ax.set_ylim(-645, 645)
+
+    else:
+        print("this geometry has not been implemented yet!")

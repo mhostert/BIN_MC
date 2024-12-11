@@ -1,0 +1,46 @@
+#: table_doi: digitized
+#: name: NuTeV numu from https://arxiv.org/pdf/hep-ex/0509010
+#: description: Inclusive muon-neutrino charged current cross section.
+#: 
+#: data_file:
+#: keyword reactions: NUMU nucleon --> MU- X 
+#: keyword observables: SIG/A/E
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: 
+#: 
+PLAB [GEV],SIG/E [10**-38 CM**2/GEV],error +
+3.51305609e+1,7.02379770e-1,7.07720873e-1
+4.51644101e+1,6.84587526e-1,6.89335300e-1
+5.50773694e+1,6.81038461e-1,6.86083115e-1
+6.52321083e+1,6.78676627e-1,6.83720994e-1
+7.51450677e+1,6.81655752e-1,6.86996998e-1
+8.51789168e+1,6.84635021e-1,6.89382795e-1
+9.52127660e+1,6.79008948e-1,6.83459987e-1
+1.10082205e+2,6.69827784e-1,6.75169030e-1
+1.30029014e+2,6.54421193e-1,6.59465703e-1
+1.50096712e+2,6.61269938e-1,6.66314592e-1
+1.70164410e+2,6.36664677e-1,6.41709187e-1
+1.90232108e+2,6.68735974e-1,6.74373813e-1
+2.15014507e+2,6.56895953e-1,6.61940320e-1
+2.45116054e+2,6.37347112e-1,6.44765510e-1
+2.75096712e+2,6.79519196e-1,6.91685512e-1
+3.04956480e+2,6.16053154e-1,6.31186685e-1
+3.40014507e+2,6.20545805e-1,6.41613910e-1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

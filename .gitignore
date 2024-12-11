@@ -1,5 +1,6 @@
 gen_data/*
 luc_analysis/*
+beam-optics/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

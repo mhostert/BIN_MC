@@ -1,0 +1,23 @@
+#: table_doi: 10.17182/hepdata.20507.v1/t2
+#: name: Table 2
+#: description: No description provided.
+#: data_file: Table2.yaml
+#: keyword reactions: NUBAR NUCLEON --> X
+#: keyword observables: SIG
+#: keyword phrases: Exclusive | Integrated Cross Section | Cross Section
+#: keyword cmenergies: 8.271-19.489
+#: RE,NUBAR NUCLEON --> X
+#: SQRT(S) [GeV],8.271-19.489
+E [GEV],SIG/E [CM**2/GEV],error +,error -
+36.0,3.65e-39,1.9e-40,-1.9e-40
+45.0,3.52e-39,1.6e-40,-1.6e-40
+52.0,3.45e-39,1.5e-40,-1.5e-40
+62.0,3.33e-39,1.7e-40,-1.7e-40
+74.0,3.33e-39,2.5e-40,-2.5e-40
+89.0,3.37e-39,3.7e-40,-3.7e-40
+110.0,3.16e-39,4.2e-40,-4.2e-40
+124.0,3.4e-39,3.5e-40,-3.5e-40
+148.0,3.38e-39,3e-40,-3e-40
+174.0,3.2e-39,2.5e-40,-2.5e-40
+202.0,3.03e-39,3.4e-40,-3.4e-40
+

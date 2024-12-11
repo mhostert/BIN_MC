@@ -1,11 +1,11 @@
 import importlib
 from types import ModuleType
 
-from MuC import integrands
+from MuC import const
 from MuC import mudecay_tools
 from MuC import detector_tools
 from MuC import collider_tools
-from MuC import detgeo
+from MuC import MuC
 
 # Relevant dictionaries for treating sim demands.
 anti_neutrinos = ["nuebar", "numubar"]
@@ -22,6 +22,15 @@ compsto2 = {
     "hcal": "HC",
     "ecal": "EC",
     "nozzles": "NO",
+}
+comps_short_to_long = {
+    "Total": "Total",
+    "MD": "muon_detector",
+    "SB": "solenoid_borders",
+    "SM": "solenoid_mid",
+    "HC": "hcal",
+    "EC": "ecal",
+    "NO": "nozzles",
 }
 pdg2names = {
     "12": "nue",

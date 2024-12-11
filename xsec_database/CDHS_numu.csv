@@ -1,0 +1,22 @@
+#: table_doi: 10.17182/hepdata.15709.v1/t1
+#: name: Table 1
+#: description: Measured charged current total cross section.
+
+#: data_file: Table1.yaml
+#: keyword reactions: NUMU NUCLEON --> MU- X
+#: keyword observables: SIG
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: keyword cmenergies: 7.683-16.406
+#: RE,,,NUMU NUCLEON --> MU- X
+#: SQRT(S) [GeV],,,7.683-16.406
+PLAB [GEV],PLAB [GEV] LOW,PLAB [GEV] HIGH,SIG/E [10**-38 CM**2/GEV],stat +,stat -,sys +,sys -
+50.0,10.0,100.0,0.691,0.007,-0.007,0.027,-0.027
+85.0,20.0,160.0,0.707,0.002,-0.002,0.022,-0.022
+112.0,20.0,200.0,0.708,0.007,-0.007,0.029,-0.029
+31.0,31.0,31.0,0.682,0.008,-0.008,0.02,-0.02
+50.0,50.0,50.0,0.706,0.002,-0.002,0.018,-0.018
+61.0,61.0,61.0,0.707,0.009,-0.009,0.023,-0.023
+83.0,83.0,83.0,0.724,0.012,-0.012,0.051,-0.051
+121.0,121.0,121.0,0.708,0.003,-0.003,0.023,-0.023
+143.0,143.0,143.0,0.711,0.01,-0.01,0.04,-0.04
+

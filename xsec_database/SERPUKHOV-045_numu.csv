@@ -1,0 +1,16 @@
+#: table_doi: 10.17182/hepdata.18187.v1/t1
+#: name: Table 1
+#: description: No description provided.
+#: data_file: Table1.yaml
+#: keyword reactions: NUMU NUCLEON --> MU- X
+#: keyword observables: SIG/E
+#: keyword phrases: Inclusive | Integrated Cross Section | Cross Section | Muon production | Charged Current | Deep Inelastic Scattering
+#: keyword cmenergies: 3.203-6.197
+#: RE,,,NUMU NUCLEON --> MU- X
+#: SQRT(S) [GeV],,,3.203-6.197
+E [GEV],E [GEV] LOW,E [GEV] HIGH,SIG/E [FB/GEV],error +,error -,"sys,DUE TO THE NORMALISATION ERROR +","sys,DUE TO THE NORMALISATION ERROR -"
+6.5,5.0,8.0,7.7,0.4,-0.4,7.0%,-7.0%
+10.0,8.0,12.0,7.4,0.4,-0.4,7.0%,-7.0%
+16.0,12.0,20.0,7.2,0.4,-0.4,7.0%,-7.0%
+27.5,20.0,35.0,6.8,0.6,-0.6,7.0%,-7.0%
+

@@ -1,0 +1,14 @@
+#: table_doi: https://arxiv.org/abs/2412.03186
+#: name: FASER24
+#: description: No description provided.
+#: data_file:
+#: keyword reactions: NUMU NUCLEON --> MU- X
+#: keyword observables: SIG
+#: keyword phrases: 
+#: keyword cmenergies: 
+#: 
+#: 
+E [GEV],E [GEV] LOW,E [GEV] HIGH,SIG/E [CM**2/GEV],error +,error -
+1.83426144e+2,1.0e+2,3.0e+2,8.33210467e-1,1.16929617e+0,4.92552843e-1
+4.26872015e+2,3.0e+2,6.0e+2,1.13920996e+0,1.48490310e+0,8.03002655e-1
+7.71339940e+2,6.0e+2,1.0e+3,1.00872686e+0,1.31768415e+0,7.04876785e-1

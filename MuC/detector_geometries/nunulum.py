@@ -1,17 +1,15 @@
-from MuC.detector_tools import face, decayer, cap, initializer, barrel, conic
-import MuC.collider_tools as ud
-import copy
+import MuC.detector_tools as det
 
 # initializing detector components
-xyplane = face(0)
-outside = face(0)
+xyplane = det.Component(0)
+outside = det.Component(0)
 
 
 # non-detector
-zero = cap(outside, 0, [], 0.0, 0.0, 0.0)  # needs only the special = "end"
+zero = det.BarrelCap(outside, 0, [], 0.0, 0.0, 0.0)  # needs only the special = "end"
 
 # initializers
-one = initializer(xyplane, 1, [], 0, 1.5)
+one = det.InitialFaces(xyplane, 1, [], 0, 1.5)
 
 # All objects
 OBJECTS = [zero, one]
