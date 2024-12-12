@@ -33,18 +33,10 @@ mut_2tev = {
     "C": 3e5,
     "beam_dpop": 1e-3,
     "beam_dtheta": 1.70e-4,
-<<<<<<< HEAD
     "Nmu_per_bunch": (
         1.4e10 * 3.6 / 2.3 * (1 - 1 / np.e)
     ),  # 3.6e-9 / (1.6e-19) * (1 - 1 / np.e) * 40 * 365.25 * 24 * 3600 * 50 * 0.7,
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": (
-        1.4e10 * 3.6 / 2.3 * (1 - 1 / np.e)
-    ),  # 3.6e-9 / (1.6e-19) * (1 - 1 / np.e) * 40 * 365.25 * 24 * 3600 * 50 * 0.7,
-    "duty_factor": 0.7,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 40,
     "finj": 50,
     "Lss": 75e2,
@@ -72,14 +64,8 @@ mut_6tev = {
     "C": 9e5,
     "beam_dpop": 1e-3,
     "beam_dtheta": COMMON_dTHETA,  # 99e-5,
-<<<<<<< HEAD
     "Nmu_per_bunch": 3.6e-9 / (1.6e-19) * (1 - 1 / np.e),
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": 3.6e-9 / (1.6e-19) * (1 - 1 / np.e),
-    "duty_factor": 0.7,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 40,
     "finj": 50,
     "Lss": 75e2,
@@ -95,14 +81,8 @@ muc_3tev = {
     "C": 4.5e5,
     "beam_dpop": 1e-3,
     "beam_dtheta": COMMON_dTHETA,
-<<<<<<< HEAD
     "Nmu_per_bunch": 1.8e12,  # 4.9e9 * 4.5e3 * 1.2e7,
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": (1.8e12 * 2),  # 4.9e9 * 4.5e3 * 1.2e7,
-    "duty_factor": 1.2 / np.pi,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 1,
     "finj": 5,
     "Lss": 100e2,
@@ -118,14 +98,8 @@ muc_10tev = {
     "C": 10e5,
     "beam_dpop": 1e-3,
     "beam_dtheta": COMMON_dTHETA,
-<<<<<<< HEAD
     "Nmu_per_bunch": 1.8e12,  # 1.8e9 * 10e3 * 1.2e7, #NOTE: Why factor of 2 here?
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": (1.8e12 * 2),  # 1.8e9 * 10e3 * 1.2e7, #NOTE: Why factor of 2 here?
-    "duty_factor": 1.2 / np.pi,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 1,
     "finj": 5,
     "Lss": 100e2,
@@ -141,14 +115,8 @@ muc_30tev = {
     "C": 10e5,
     "beam_dpop": 1e-3,
     "beam_dtheta": COMMON_dTHETA,
-<<<<<<< HEAD
     "Nmu_per_bunch": 1.8e12,  # 1.8e9 * 10e3 * 1.2e7,
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": (1.8e12 * 2),  # 1.8e9 * 10e3 * 1.2e7,
-    "duty_factor": 1.2 / np.pi,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 1,
     "finj": 5,
     "Lss": 100e2,
@@ -164,20 +132,13 @@ muc_1p5tev = {
     "C": 273000,
     "beam_dpop": 1e-3,
     "beam_dtheta": COMMON_dTHETA,  # 5.93e-4,
-<<<<<<< HEAD
     "Nmu_per_bunch": 1.8e12,  # 1.28e10 * 2730 * 139 / 365 * 3.154e7,
     "duty_factor": 1 / np.pi,
-=======
-    "circular": False,
-    "Nmu_per_bunch": (1.8e12 * 2),  # 1.28e10 * 2730 * 139 / 365 * 3.154e7,
-    "duty_factor": 1.2 / np.pi,
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     "bunch_multiplicity": 1,
     "finj": 15,
     "Lss": 50e2,
     "collision_type": "mu+mu-",
     "muon_polarization": 0.0,
-<<<<<<< HEAD
 }
 
 ##########################################
@@ -210,8 +171,6 @@ nf_100gev_neg = {
     "Lss": 100e2,
     "collision_type": "mu+mu-",
     "muon_polarization": -1.0,
-=======
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
 }
 
 ##########################################
