@@ -16,7 +16,6 @@ nuf_dict = {
     "nutau": "t",
     "nutaubar": "t",
 }
-<<<<<<< HEAD
 
 
 # """Returns necessary cross neutrino cross sections from xsecs"""
@@ -186,8 +185,6 @@ def inverse_lepton_decay_sigma(Enu, nui, lepton, C_LR=0.2334, m=const.m_e):
 
     return np.where(kinematically_allowed, sigma, 0) * const.invGeV2_to_cm2
 
-=======
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
 
 """
  Cross sections taken from Alfonso's paper
@@ -293,7 +290,6 @@ sigma_resonant_Kstar = interp1d(
 # Assume (sigma_e = sigma_mu)
 total_xsecs = {}
 total_xsecs["nue"] = (
-<<<<<<< HEAD
     lambda x: sigma_lightquark_CC_nu(x)
     + sigma_charm_CC_nu(x)
     + sigma_bottom_CC_nu(x)
@@ -319,174 +315,6 @@ total_xsecs["numubar"] = (
 )
 
 
-=======
-    lambda x: sigma_lightquark_CC_nu(x) + sigma_charm_CC_nu(x) + sigma_NC_nu(x)
-)
-total_xsecs["nuebar"] = (
-    lambda x: sigma_lightquark_CC_nubar(x) + sigma_charm_CC_nubar(x) + sigma_NC_nubar(x)
-)
-total_xsecs["numu"] = (
-    lambda x: sigma_lightquark_CC_nu(x) + sigma_charm_CC_nu(x) + sigma_NC_nu(x)
-)
-total_xsecs["numubar"] = (
-    lambda x: sigma_lightquark_CC_nubar(x) + sigma_charm_CC_nubar(x) + sigma_NC_nubar(x)
-)
-
-
-# """Returns necessary cross neutrino cross sections from xsecs"""
-# log10E, sigmaeo, sigmamuo, _, sigmaebaro, sigmamubaro, _ = np.genfromtxt(
-#     files("MuC.xsec_data").joinpath("XCC.dat").open(), unpack=True
-# )
-# exs = 10 ** (log10E)
-# exs = np.append(exs, 1e4)
-
-# # adding values linearily up to 10 TeV
-# sigmae = np.append(sigmaeo, 7.046434082801659e-1)
-# sigmamu = np.append(sigmamuo, 7.046434082801659e-1)
-# sigmaebar = np.append(sigmaebaro, 3.758631195493489e-1)
-# sigmamubar = np.append(sigmamubaro, 3.758631195493489e-1)
-
-# # generating interpolators
-# total_sigmanue = interp1d(exs, sigmae * exs * 1e-38, bounds_error=False, fill_value=0.0)
-# total_sigmanuebar = interp1d(
-#     exs, sigmaebar * exs * 1e-38, bounds_error=False, fill_value=0.0
-# )
-# total_sigmanumu = interp1d(
-#     exs, sigmamu * exs * 1e-38, bounds_error=False, fill_value=0.0
-# )
-# total_sigmanumubar = interp1d(
-#     exs, sigmamubar * exs * 1e-38, bounds_error=False, fill_value=0.0
-# )
-
-
-""" 
-    Neutrino-electron elastic scattering functions 
-     
-     * These are all calculable
-     * NOTE: neglecting radiative corrections of O(alpha_EM) for now 
-"""
-# Neutrino-electron scattering tools
-C_LL_dic = {}
-C_LL_dic["e"] = 0.7276
-C_LL_dic["m"] = -0.2730
-C_LL_dic["t"] = -0.2730
-
-
-def nue_elastic_sigma(Enu, nuf, C_LR=0.2334, m=const.m_e):
-    """
-    Calculate the total cross section ignoring terms proportional to alpha_EM.
-
-    Parameters:
-    E_nu : float
-        Neutrino energy.
-    C_LL : float
-        Coupling constant for LL component.
-    C_LR : float
-        Coupling constant for LR component.
-    m : float
-        Mass of the lepton in GeV.
-
-    Returns:
-    tuple: Total cross sections for (neutrino-electron -> neutrino-lepton-electron) and (antineutrino-electron -> antineutrino-lepton-electron).
-    """
-
-    C_LL = C_LL_dic[nuf_dict[nuf]]
-    s = 2 * m * Enu  # + m**2
-    prefactor = const.Gf**2 * s / np.pi
-
-    y_max = 2 * Enu / (2 * Enu + m)
-
-    if "bar" in nuf:
-        term1 = (C_LR**2) * y_max
-        term2 = (C_LL**2) * (y_max - y_max**2 + y_max**3 / 3)
-        term3 = (-C_LL * C_LR * m / (2 * Enu)) * y_max**2
-        sigma = prefactor * (term1 + term2 + term3)
-
-    else:
-        term1 = (C_LL**2) * y_max
-        term2 = (C_LR**2) * (y_max - y_max**2 + y_max**3 / 3)
-        term3 = (-C_LL * C_LR * m / (2 * Enu)) * y_max**2
-
-        sigma = prefactor * (term1 + term2 + term3)
-    return sigma * const.invGeV2_to_cm2
-
-
-def nue_elastic_dsigma_dy(y, Enu, nuf, C_LR=0.2334, m=const.m_e):
-    """
-    Calculate the differential cross section ignoring terms proportional to alpha_EM.
-
-    Parameters:
-    C_LL : float
-        Coupling constant for LL component.
-    C_LR : float
-        Coupling constant for LR component.
-    E_nu : float
-        Neutrino energy.
-    y : float
-        Fractional energy transfer.
-    m : float
-        Mass of the lepton.
-
-    Returns:
-    tuple: Differential cross sections for (neutrino-electron -> neutrino-lepton-electron) and (antineutrino-electron -> antineutrino-lepton-electron).
-    """
-    C_LL = C_LL_dic[nuf_dict[nuf]]
-    s = 2 * m * Enu + m**2
-
-    if "bar" in nuf:
-        # Differential cross section for antineutrino scattering
-        dsigma_dy = (const.Gf**2 * s / np.pi) * (
-            (C_LR**2) + (C_LL**2) * (1 - y) ** 2 - (C_LL * C_LR * m * y) / Enu
-        )
-    else:
-        # Differential cross section for neutrino scattering
-        dsigma_dy = (const.Gf**2 * s / np.pi) * (
-            (C_LL**2) + (C_LR**2) * (1 - y) ** 2 - (C_LL * C_LR * m * y) / Enu
-        )
-    return dsigma_dy
-
-
-def inverse_lepton_decay_sigma(Enu, nui, lepton, C_LR=0.2334, m=const.m_e):
-    """
-    Calculate the differential cross section ignoring terms proportional to alpha_EM.
-
-    Returns:
-    tuple: Differential cross sections for (neutrino-electron -> neutrino-lepton-electron) and (antineutrino-electron -> antineutrino-lepton-electron).
-    """
-    if lepton == "m":
-        mlepton = const.m_mu
-    elif lepton == "t":
-        mlepton = const.m_tau
-    else:
-        return None
-
-    if nui not in ["numu", "nutau", "nuebar"]:
-        return Enu * 0
-
-    s = 2 * Enu * const.m_e + const.m_e**2
-    kinematically_allowed = s > mlepton**2
-
-    ymax = 1 - mlepton**2 / (s)
-
-    prefactor = 2 * const.m_e * const.Gf**2 * Enu / np.pi
-
-    if nui != "nuebar":
-        # Differential cross section for neutrino scattering
-        sigma = (
-            prefactor * (1 - (mlepton**2 - const.m_e**2) / (s - const.m_e**2)) * ymax
-        )
-    else:
-        # Differential cross section for antineutrino scattering
-        sigma = prefactor * (
-            ymax
-            - ((const.m_e**2 - mlepton**2) * (ymax - 2) * ymax) / (4 * Enu * const.m_e)
-            + (ymax / 3 - 1) * ymax**2
-        )
-
-    return np.where(kinematically_allowed, sigma, 0) * const.invGeV2_to_cm2
-
-
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
 """ 
     Neutrino-nucleus trident scattering functions 
      
@@ -550,18 +378,12 @@ def get_cross_sections(Enu, nui, Z):
     if "bar" in nui:
         xsecs[f"{nui}_CC_light"] = sigma_lightquark_CC_nubar(Enu)
         xsecs[f"{nui}_CC_charm"] = sigma_charm_CC_nubar(Enu)
-<<<<<<< HEAD
         xsecs[f"{nui}_CC_bottom"] = sigma_bottom_CC_nubar(Enu)
-=======
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
         xsecs[f"{nui}_NC"] = sigma_NC_nubar(Enu)
     else:
         xsecs[f"{nui}_CC_light"] = sigma_lightquark_CC_nu(Enu)
         xsecs[f"{nui}_CC_charm"] = sigma_charm_CC_nu(Enu)
-<<<<<<< HEAD
         xsecs[f"{nui}_CC_bottom"] = sigma_bottom_CC_nu(Enu)
-=======
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
         xsecs[f"{nui}_NC"] = sigma_NC_nu(Enu)
 
     # Elastic neutrino-electron scattering
@@ -580,13 +402,10 @@ def get_cross_sections(Enu, nui, Z):
         Z / 6
     )  # Approximation for other targets (Z=6 for Carbon)
 
-<<<<<<< HEAD
     # resonant rho- production
     xsecs[f"{nui}_resonant_rho-"] = sigma_resonant_rho(Enu) * (nui == "nuebar")
     xsecs[f"{nui}_resonant_Kstar-"] = sigma_resonant_Kstar(Enu) * (nui == "nuebar")
 
-=======
->>>>>>> afbcf968c3e61d22c8bb0afe1be2991cd23da929
     flavors = ["e", "m", "l"]
     for nuf in flavors:
         for minus_lep in flavors:

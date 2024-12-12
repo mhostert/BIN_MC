@@ -1,12 +1,14 @@
-# BIN_MC
+## Beam Induced Neutrino events at a Muon Collider
 
 Monte-Carlo for Beam Induced Neutrinos (BIN) in a Muon Collider (MC).
 
-Simulation of the neutrino flux and interaction rate in a muon collider detector.
+This code uses lattices provided by the IMCC collaboration. To implement them, we create smooth interpolators of the lattice, which are created by `create_beam_optics_files.ipynb`. The files are over 200 MB in size, they need to be created (should take no longer than a few minutes).
 
-All the magic happens inside `nuflux` and `detgeo`
+Several examples of how to generate events and the plots used for the paper are in `BIN_characterization.ipynb` and `BIN_forward_flux.ipynb`.
 
+The LaTeX tables of total BIN interaction rates are generated in `BIN_rate_tables.ipynb`.
 
+Some work on neutrino-electron scattering is in `BIN_electron_scattering_rates.ipynb`.
 
 ## Installation
 
@@ -18,5 +20,8 @@ Requirements:
 * numba
 * scipy
 
+## Citation 
 
-## Literature
+If you use this code, please cite:
+
+@article{...}
