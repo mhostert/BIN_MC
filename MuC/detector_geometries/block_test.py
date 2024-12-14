@@ -3,9 +3,11 @@ import MuC.detector_tools as det
 
 
 # these densities will be number densities
-block = det.Component(19.3 / (939e6 * 1.6e-19 / (3e8) ** 2 * 10**3))
-beampipe = det.Component(0)
-outside = det.Component(0)
+block = det.Material(
+    density=19.3 / (939e6 * 1.6e-19 / (3e8) ** 2 * 10**3), am=1, A=1, Z=1
+)
+beampipe = det.vacuum
+outside = det.vacuum
 
 # caps have: id, next_ids, zpos, rbeg, rend
 

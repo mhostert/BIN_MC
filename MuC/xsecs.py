@@ -146,7 +146,7 @@ def nue_elastic_dsigma_dy(y, Enu, nuf, s2w=0.2334, m=const.m_e):
     return np.where((y >= 0) & (y <= 1), dsigma_dy, 0) * const.invGeV2_to_cm2
 
 
-def inverse_lepton_decay_sigma(Enu, nui, lepton, C_LR=0.2334, m=const.m_e):
+def inverse_lepton_decay_sigma(Enu, nui, lepton):
     """
     Calculate the differential cross section ignoring terms proportional to alpha_EM.
 
@@ -245,9 +245,24 @@ sigma_bottom_CC_nubar = interp1d(
 #     **kwargs_interp,
 # )
 
-# Neutral current -- NOTE: approximate
-sigma_NC_nu = lambda x: 0.289 / 0.66 * sigma_lightquark_CC_nu(x)
-sigma_NC_nubar = lambda x: 0.289 / 0.66 * sigma_lightquark_CC_nubar(x)
+
+# Neutral current -- NOTE: approximate (assumes sigma_nu = sigma_nubar and isoscalar targets)
+def sigma_NC_nu(Enu):
+    return 0.335 * sigma_lightquark_CC_nu(Enu) / 2
+
+
+def sigma_NC_nubar(Enu):
+    return 0.335 * sigma_lightquark_CC_nubar(Enu) / 2
+
+
+# Quasi-Elastic scattering -- NOTE: approximate (also assumes isoscalar targets)
+def sigma_QE_nu(Enu):
+    return 0.9 * 1e-38 * np.ones(len(Enu)) / 2
+
+
+def sigma_QE_nubar(Enu):
+    return 0.9 * 1e-38 * np.ones(len(Enu)) / 2
+
 
 # Coherent pion production (calculation on Carbon)
 e, ratio = np.genfromtxt(
@@ -315,9 +330,9 @@ total_xsecs["numubar"] = (
 )
 
 
-""" 
-    Neutrino-nucleus trident scattering functions 
-     
+"""
+    Neutrino-nucleus trident scattering functions
+
      * Calculated by B. Zhou and J. Beacom
 """
 
@@ -371,27 +386,34 @@ def get_trident_xsec(nui, nuf, minus_lep, plus_lep, target):
     return interp1d(xsec[0], xsec[1], **kwargs_interp)
 
 
-def get_cross_sections(Enu, nui, Z):
+def get_cross_sections(Enu, nui, Z, A):
 
     xsecs = {}
-    # Neutrino-nucleon cross sections
+
+    # Neutrino-nucleon cross sections (NOTE: Assume isoscalar targets)
     if "bar" in nui:
         xsecs[f"{nui}_CC_light"] = sigma_lightquark_CC_nubar(Enu)
         xsecs[f"{nui}_CC_charm"] = sigma_charm_CC_nubar(Enu)
         xsecs[f"{nui}_CC_bottom"] = sigma_bottom_CC_nubar(Enu)
         xsecs[f"{nui}_NC"] = sigma_NC_nubar(Enu)
+        xsecs[f"{nui}_QE"] = sigma_QE_nu(Enu)
     else:
         xsecs[f"{nui}_CC_light"] = sigma_lightquark_CC_nu(Enu)
         xsecs[f"{nui}_CC_charm"] = sigma_charm_CC_nu(Enu)
         xsecs[f"{nui}_CC_bottom"] = sigma_bottom_CC_nu(Enu)
         xsecs[f"{nui}_NC"] = sigma_NC_nu(Enu)
+        xsecs[f"{nui}_QE"] = sigma_QE_nubar(Enu)
 
     # Elastic neutrino-electron scattering
-    xsecs[f"{nui}_ES_e"] = nue_elastic_sigma(Enu, nui)
+    xsecs[f"{nui}_ES_e"] = nue_elastic_sigma(Enu, nui) * Z / A
 
     # Inverse lepton decay
-    xsecs[f"{nui}_invdecay_mu"] = inverse_lepton_decay_sigma(Enu, nui=nui, lepton="m")
-    xsecs[f"{nui}_invdecay_tau"] = inverse_lepton_decay_sigma(Enu, nui=nui, lepton="t")
+    xsecs[f"{nui}_invdecay_mu"] = (
+        inverse_lepton_decay_sigma(Enu, nui=nui, lepton="m") * Z / A
+    )
+    xsecs[f"{nui}_invdecay_tau"] = (
+        inverse_lepton_decay_sigma(Enu, nui=nui, lepton="t") * Z / A
+    )
 
     # if nui == "nuebar":
     # xsecs[f"{nui}_invdecay_mu"] = inverse_lepton_decay_sigma(Enu, nui=nui, lepton="m")
@@ -399,12 +421,16 @@ def get_cross_sections(Enu, nui, Z):
 
     # Coherent pion production
     xsecs[f"{nui}_pi0_coh"] = sigma_cohpi0(Enu) * (
-        Z / 6
+        (Z / 6) ** 2 / (A)
     )  # Approximation for other targets (Z=6 for Carbon)
 
     # resonant rho- production
-    xsecs[f"{nui}_resonant_rho-"] = sigma_resonant_rho(Enu) * (nui == "nuebar")
-    xsecs[f"{nui}_resonant_Kstar-"] = sigma_resonant_Kstar(Enu) * (nui == "nuebar")
+    xsecs[f"{nui}_resonant_rho-"] = (
+        sigma_resonant_rho(Enu) * (nui == "nuebar") * (Z / A)
+    )
+    xsecs[f"{nui}_resonant_Kstar-"] = (
+        sigma_resonant_Kstar(Enu) * (nui == "nuebar") * (Z / A)
+    )
 
     flavors = ["e", "m", "l"]
     for nuf in flavors:
@@ -414,8 +440,8 @@ def get_cross_sections(Enu, nui, Z):
                     nuf_dict[nui], nuf, minus_lep, plus_lep, "O16"
                 )
                 if tri_xsec is not None:
-                    xsecs[f"{nui}_{nuf}{minus_lep}{plus_lep}_tri"] = (
-                        tri_xsec(Enu) * Z / 8
+                    xsecs[f"{nui}_{nuf}{minus_lep}{plus_lep}_tri"] = tri_xsec(Enu) * (
+                        (Z**2 / 8) / A
                     )  # Approximation for other targets (Z=8 for Oxygen)
 
     xsecs[f"{nui}_total"] = total_xsecs[nui](Enu)

@@ -1,25 +1,18 @@
 import numpy as np
 from numba import njit
 
-from DarkNews import const
-
-# from memory_profiler import profile
-
-
-class Component:
-    """A detector component. Its density is the number of targets density."""
-
-    def __init__(self, density):
-        self.density = density  # density in which they're going
+from MuC import const
 
 
 class BarrelCap:
     """These are the ones sitting on a z plane"""
 
     def __init__(
-        self, parent, id, next_ids, zpos, rbeg, rend
+        self, material, id, next_ids, zpos, rbeg, rend
     ):  # what to do for the end
-        self.density = parent.density
+        self.material = material
+        self.material = material
+        self.density = material.N
         self.id = id
         self.next_ids = next_ids
         self.zpos = zpos
@@ -35,8 +28,9 @@ class BarrelCap:
 class Barrel:
     """These are cylindrical around a z line; usually both sides are included as separate faces"""
 
-    def __init__(self, parent, id, next_ids, rpos, zbeg, zend):
-        self.density = parent.density
+    def __init__(self, material, id, next_ids, rpos, zbeg, zend):
+        self.material = material
+        self.density = material.N
         self.id = id
         self.next_ids = next_ids
         self.rpos = rpos
@@ -58,8 +52,11 @@ class Barrel:
 class Conic:
     """These are cones centered on a z line"""
 
-    def __init__(self, parent, id, next_ids, tan_theta, zbeg, zend, rsmall, direction):
-        self.density = parent.density
+    def __init__(
+        self, material, id, next_ids, tan_theta, zbeg, zend, rsmall, direction
+    ):
+        self.material = material
+        self.density = material.N
         self.id = id
         self.next_ids = next_ids
         self.tan_theta = tan_theta  # positive
@@ -88,8 +85,9 @@ class Conic:
 class InitialFaces:
     """These are the first components a particle will encounter. Since they are all on the same plane (caps), I figured it's easier to compute once than to check at each time."""
 
-    def __init__(self, parent, id, next_ids, rsmall, rbig):
-        self.density = parent.density
+    def __init__(self, material, id, next_ids, rsmall, rbig):
+        self.material = material
+        self.density = material.N
         self.id = id
         self.next_ids = next_ids
         self.rsmall = rsmall
@@ -105,8 +103,9 @@ class InitialFaces:
 class MuonContainer:
     """These are the parts within which particles decaying in the detector would be. Supposed to only be beampipe, but in completely circular approximation might be nozzles."""
 
-    def __init__(self, parent, id, next_ids, last):
-        self.density = parent.density
+    def __init__(self, material, id, next_ids, last):
+        self.material = material
+        self.density = material.N
         self.id = id
         self.next_ids = next_ids
         self.last = last
@@ -241,10 +240,14 @@ class CompositMaterial:
         self.density = 0
         self.N = 0
         self.e = 0
+        self.Z = 0
+        self.A = 0
         for material, fraction in table:
             self.density += material.density * fraction
             self.N += material.N * fraction
             self.e += material.e * fraction
+            self.Z += material.Z * fraction
+            self.A += material.A * fraction
 
 
 # class unif(Material):
@@ -267,6 +270,7 @@ Al = Material(2.7, 26.981539, 27, 13)
 W = Material(19.3, 183.84, 184, 74)
 Cu = Material(8.96, 63.546, 64, 29)
 PS = Material(1.05, 104.1, 104, 56)
+vacuum = Material(0, 1, 0, 0)
 
 # from CLICdet paper
 hcal_CLICdet = CompositMaterial(

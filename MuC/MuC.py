@@ -366,11 +366,15 @@ class DetectorSimulator:
             dict: rate of rare events
         """
         self.exclusive_rates = {}
+        Z = np.array([self.objects[comp].material.Z for comp in self.component_id])
+        A = np.array([self.objects[comp].material.A for comp in self.component_id])
         for key in self.face_dict.keys():
             face_mask = self.get_face_masks(key)
 
             # NOTE: Fix-me to include other nuclei
-            channels = xsecs.get_cross_sections(self.E[face_mask], self.nuflavor, 8)
+            channels = xsecs.get_cross_sections(
+                self.E[face_mask], self.nuflavor, Z[face_mask], A[face_mask]
+            )
 
             for c, xsec in channels.items():
                 self.exclusive_rates[(key, c)] = np.sum(

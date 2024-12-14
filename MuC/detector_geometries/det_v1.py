@@ -2,13 +2,13 @@
 from MuC import detector_tools as det
 
 # these densities will be number densities
-muon_detector_hcal = det.Component(det.Fe.N)
-solenoid = det.Component(det.Al.N)
-ecal = det.Component(det.WSi2.N)  # should actually use SiW, not WSi2
-tracker = det.Component(det.Si.N)
-cone = det.Component(det.W.N)
-beampipe = det.Component(0)
-outside = det.Component(0)
+muon_detector_hcal = det.Fe
+solenoid = det.Al
+ecal = det.WSi2  # should actually use SiW, not WSi2
+tracker = det.Si
+cone = det.W
+beampipe = det.vacuum
+outside = det.vacuum
 
 # caps have: id, next_ids, zpos, rbeg, rend
 

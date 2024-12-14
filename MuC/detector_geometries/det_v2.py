@@ -2,24 +2,22 @@ import MuC.detector_tools as det
 import copy
 
 # initializing detector components
-muon_detector = det.Component(det.Fe.N)
-solenoid_borders = det.Component(det.Fe.N)
-solenoid_mid = det.Component(det.Al.N)
-hcal = det.Component(det.hcal_CLICdet.N)  # Fe absorber, middle parts comple
-ecal = det.Component(
-    det.ecal_CLICdet.N
-)  # W absrober plates, silicon detector, have to weigh them appropriately
-vacuum_in_between = det.Component(det.Air.N)  # this includes the very thin tracker
-nozzle = det.Component(det.W.N)
-beampipe = det.Component(0)
-outside = det.Component(0)
+muon_detector = det.Fe
+solenoid_borders = det.Fe
+solenoid_mid = det.Al
+hcal = det.hcal_CLICdet  # Fe absorber, middle parts comple
+ecal = det.ecal_CLICdet  # W absorber plates, silicon detector, weighed appropriately
+vacuum_in_between = det.Air  # includes the thin tracker
+nozzle = det.W
+beampipe = det.vacuum
+outside = det.vacuum
 
 ###### decayers
 # decays outside beampipe, if any
-minus_two = det.MuonContainer(parent=nozzle, id=-2, next_ids=[13, 50], last=50)
+minus_two = det.MuonContainer(material=nozzle, id=-2, next_ids=[13, 50], last=50)
 # decays in beampipe
 minus_one = det.MuonContainer(
-    parent=beampipe, id=-1, next_ids=[15, 16, 17, 18], last=18
+    material=beampipe, id=-1, next_ids=[15, 16, 17, 18], last=18
 )
 
 ###### non-detector
@@ -27,17 +25,16 @@ zero = det.BarrelCap(outside, 0, [], 0.0, 0.0, 0.0)  # needs only the special = 
 
 ###### initializers
 one = det.InitialFaces(
-    parent=muon_detector, id=1, next_ids=[4, 6, 88], rsmall=78.2, rbig=645
+    material=muon_detector, id=1, next_ids=[4, 6, 88], rsmall=78.2, rbig=645
 )
 two = det.InitialFaces(
-    parent=nozzle, id=2, next_ids=[8, 9, 10, 11, 12, 13], rsmall=2.2, rbig=78.2
+    material=nozzle, id=2, next_ids=[8, 9, 10, 11, 12, 13], rsmall=2.2, rbig=78.2
 )
 three = det.InitialFaces(
-    parent=beampipe, id=3, next_ids=[15, 16, 17, 18], rsmall=0.0, rbig=2.2
+    material=beampipe, id=3, next_ids=[15, 16, 17, 18], rsmall=0.0, rbig=2.2
 )
 
 ###### detector components
-
 four = det.Barrel(outside, 4, [], 645.0, -563.8, 563.8)
 five = det.BarrelCap(outside, 5, [], 563.8, 78.2, 645.0)
 six = det.BarrelCap(

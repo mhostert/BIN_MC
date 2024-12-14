@@ -1,8 +1,8 @@
 import MuC.detector_tools as det
 
 # initializing detector components
-xyplane = det.Component(0)
-outside = det.Component(0)
+xyplane = det.vacuum
+outside = det.vacuum
 
 
 # non-detector
