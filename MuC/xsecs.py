@@ -441,7 +441,7 @@ def get_cross_sections(Enu, nui, Z, A):
                 )
                 if tri_xsec is not None:
                     xsecs[f"{nui}_{nuf}{minus_lep}{plus_lep}_tri"] = tri_xsec(Enu) * (
-                        (Z**2 / 8) / A
+                        (Z / 8) ** 2 / A
                     )  # Approximation for other targets (Z=8 for Oxygen)
 
     xsecs[f"{nui}_total"] = total_xsecs[nui](Enu)

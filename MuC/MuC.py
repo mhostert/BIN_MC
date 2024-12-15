@@ -1961,8 +1961,8 @@ class BINSimulator:
         except KeyError:
             return 0
 
-    def load_GENIE_events(self, filename, direc=None, n_events=1e5):
-        """Loads a GENIE analysis file, adding respective weights based on this simulation's number of BIN interactions.
+    def load_GENIE_file(self, filename, n_events=1e5):
+        """Loads a single GENIE analysis file, adding respective weights based on this simulation's number of BIN interactions.
 
         Args:
             filename (str): name of the GENIE file to load.
@@ -2003,46 +2003,92 @@ class BINSimulator:
         data = pd.read_csv(filename, sep="\s+", skiprows=5)
 
         print("Adding weights...")
+        try:
+            data["w"] = data.apply(
+                lambda row: self.get_GENIE_event_weight(
+                    row["DComp"], MuC.pdg2names[str(row["IncL"])], n_events=n_events
+                ),
+                axis=1,
+            )
+        except KeyError:
+            data["w"] = data.apply(
+                lambda row: self.get_GENIE_event_weight(
+                    row["DComp"], str(row["Particle"]), n_events=n_events
+                ),
+                axis=1,
+            )
 
-        data["w"] = data.apply(
-            lambda row: self.get_GENIE_event_weight(
-                row["DComp"], MuC.pdg2names[str(row["IncL"])], n_events=n_events
-            ),
-            axis=1,
-        )
-
-        data["Q2"] = get_Q2(data["nu_E"], data["E"], data["pz"])
+        if "Q2" in data.columns:
+            data["Q2"] = get_Q2(data["nu_E"], data["E"], data["pz"])
 
         print("Done!")
 
         return data
 
-    def load_genie_events(self, filenames, n_events=1e6, DIREC=None):
+    def load_genie_events(self, filenames, n_events=1e6):
+        """
+        Load GENIE events from the specified filenames.
+        Parameters:
+        filenames (str or list of str): The filename(s) from which to load GENIE events.
+                                        Can be a single filename or a list of filenames.
+        n_events (int, optional): The number of events to load. Default is 1e6.
+
+        Returns: None
+            This method sets the following attributes:
+                - genie_events: A DataFrame containing the loaded GENIE events.
+                - genie_e: A boolean array indicating electron events.
+                - genie_mu: A boolean array indicating muon events.
+                - genie_tau: A boolean array indicating tau events.
+                - genie_nue: A boolean array indicating electron neutrino events.
+                - genie_numu: A boolean array indicating muon neutrino events.
+                - genie_nutau: A boolean array indicating tau neutrino events.
+                - genie_nuebar: A boolean array indicating electron antineutrino events.
+                - genie_numubar: A boolean array indicating muon antineutrino events.
+                - genie_nutaubar: A boolean array indicating tau antineutrino events.`
+        """
+
         if isinstance(filenames, list):
             data_cases = []
             for filename in filenames:
                 data_cases.append(
-                    self.load_GENIE_events(
-                        f"{filename}", n_events=n_events, direc=DIREC, getQ=True
-                    )
+                    self.load_GENIE_file(f"{filename}", n_events=n_events)
                 )
             self.genie_events = pd.concat(data_cases, axis=0)
         else:
-            self.genie_events = self.load_GENIE_events(
-                f"{filenames}", n_events=n_events, direc=DIREC, getQ=True
+            self.genie_events = self.load_GENIE_file(f"{filenames}", n_events=n_events)
+
+        try:
+            self.genie_e = np.abs(self.genie_events["OutL"]) == 11
+            self.genie_mu = np.abs(self.genie_events["OutL"]) == 13
+            self.genie_tau = np.abs(self.genie_events["OutL"]) == 15
+
+            self.genie_nue = self.genie_events["IncL"] == 12
+            self.genie_numu = self.genie_events["IncL"] == 14
+            self.genie_nutau = self.genie_events["IncL"] == 16
+
+            self.genie_nuebar = self.genie_events["IncL"] == -12
+            self.genie_numubar = self.genie_events["IncL"] == -14
+            self.genie_nutaubar = self.genie_events["IncL"] == -16
+        except KeyError:
+            self.genie_e = (self.genie_events["Name"] == "e-") | (
+                self.genie_events["Name"] == "e+"
+            )
+            self.genie_mu = (self.genie_events["Name"] == "mu-") | (
+                self.genie_events["Name"] == "mu+"
+            )
+            self.genie_tau = (self.genie_events["Name"] == "tau-") | (
+                self.genie_events["Name"] == "tau+"
             )
 
-        self.genie_e = np.abs(self.genie_events["OutL"]) == 11
-        self.genie_mu = np.abs(self.genie_events["OutL"]) == 13
-        self.genie_tau = np.abs(self.genie_events["OutL"]) == 15
+            self.genie_nue = self.genie_events["Particle"] == "nue"
+            self.genie_numu = self.genie_events["Particle"] == "numu"
+            self.genie_nutau = self.genie_events["Particle"] == "nutau"
 
-        self.genie_nue = self.genie_events["IncL"] == 12
-        self.genie_numu = self.genie_events["IncL"] == 14
-        self.genie_nutau = self.genie_events["IncL"] == 16
+            self.genie_nuebar = self.genie_events["Particle"] == "nuebar"
+            self.genie_numubar = self.genie_events["Particle"] == "numubar"
+            self.genie_nutaubar = self.genie_events["Particle"] == "nutaubar"
 
-        self.genie_nuebar = self.genie_events["IncL"] == -12
-        self.genie_numubar = self.genie_events["IncL"] == -14
-        self.genie_nutaubar = self.genie_events["IncL"] == -16
+        return self.genie_events
 
 
 @njit
