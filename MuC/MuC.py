@@ -1432,6 +1432,19 @@ class BINSimulator:
         return self.get_face_counts_new_pol()
 
     def get_exclusive_rates(self):
+        """
+        Calculate and aggregate exclusive rates for all neutrino species.
+        This method performs the following steps:
+        1. Initializes an empty dictionary `self.exclusive_rates`.
+        2. Iterates over all simulations in `self.sims` and retrieves their exclusive rates.
+        3. Aggregates the exclusive rates for each neutrino flavor, component, and channel.
+        4. Initializes an empty dictionary `self.exclusive_rates_combined`.
+        5. Aggregates the exclusive rates for ECAL and HCAL components across all neutrino species.
+        6. Ensures that all test flavors ("nue", "numu", "nuebar", "numubar") have entries in `self.exclusive_rates_combined`, initializing them to 0 if they do not exist.
+        The resulting exclusive rates are stored in `self.exclusive_rates` and `self.exclusive_rates_combined`.
+        Returns:
+            None
+        """
 
         # Append exclusive rates all neutrino species
         self.exclusive_rates = {}
@@ -1603,7 +1616,9 @@ class BINSimulator:
             part (str): a particle one would want to single out. Can be either nue, nuebar, numu, or numubar.
             genie (bool): to get the n*l factor in too."""
 
-        if (sec != "all") & (sec not in self.comps):
+        if isinstance(sec, list) or isinstance(sec, tuple):
+            secs = sec
+        elif (sec != "all") & (sec not in self.comps):
             raise ValueError(
                 "This is not an implemented detector component. Choices are: "
                 + str(self.comps)
@@ -1629,8 +1644,16 @@ class BINSimulator:
         times = np.concatenate([sim.times for sim in sims])
         E = np.concatenate([sim.E for sim in sims])
         costheta = np.concatenate([sim.costheta for sim in sims])
-        mask = np.concatenate([sim.get_face_masks(sec) for sim in sims])
+        mask = np.zeros(len(x))
+        if isinstance(sec, list) or isinstance(sec, tuple):
+            for sec in secs:
+                mask += np.concatenate([sim.get_face_masks(sec) for sim in sims])
+        elif isinstance(sec, str):
+            mask = np.concatenate([sim.get_face_masks(sec) for sim in sims])
+        else:
+            raise ValueError("sec must be a string or a list of strings.")
 
+        mask = mask.astype(bool)
         if genie:
             w = np.concatenate([sim.wnl for sim in sims])
 

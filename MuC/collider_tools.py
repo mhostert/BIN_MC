@@ -41,7 +41,7 @@ mut_2tev = {
     "finj": 50,
     "Lss": 75e2,
     "collision_type": "mu+mu+",
-    "muon_polarization": 0.0,
+    "muon_polarization": 0.8,
 }
 
 ##########################################
