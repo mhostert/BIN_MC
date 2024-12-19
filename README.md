@@ -13,10 +13,10 @@ Some work on neutrino-electron scattering is in `BIN_electron_scattering_rates.i
 ## Installation
 
 Requirements:
+* DarkNews
 * vegas
 * pandas
 * numpy
-* DarkNews (pip install DarkNews)
 * numba
 * scipy
 
