@@ -6,7 +6,7 @@ This code uses lattices provided by the IMCC collaboration. To implement them, w
 
 Several examples of how to generate events and the plots used for the paper are in `BIN_characterization.ipynb` and `BIN_forward_flux.ipynb`.
 
-The LaTeX tables of total BIN interaction rates are generated in `BIN_rate_tables.ipynb`.
+The LaTeX tables of total BIN interaction rates are generated in `BIN_characterization.ipynb`.
 
 Some work on neutrino-electron scattering is in `BIN_electron_scattering_rates.ipynb`.
 
